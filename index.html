@@ -242,13 +242,25 @@
       }
 
       async function loadModels() {
-        const MODEL_URL = "./models"; // relative path for GitHub Pages subpath
+        // Handle both local and GitHub Pages paths
+        const repoName = "AI-mirror";
+        const MODEL_URL =
+          location.hostname === "localhost" || location.hostname === "127.0.0.1"
+            ? "./models"
+            : `/${repoName}/models`;
+
         hud.textContent = "loading models…";
-        await Promise.all([
-          faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
-          faceapi.nets.faceExpressionNet.loadFromUri(MODEL_URL),
-        ]);
-        hud.textContent = "models ready";
+        try {
+          await Promise.all([
+            faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+            faceapi.nets.faceExpressionNet.loadFromUri(MODEL_URL),
+          ]);
+          hud.textContent = "models ready";
+        } catch (error) {
+          console.error("Error loading models:", error);
+          hud.textContent = `Error loading models from ${MODEL_URL}. Check console for details.`;
+          throw error;
+        }
       }
 
       async function setupCamera() {
