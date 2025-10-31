@@ -49,6 +49,12 @@
       }
 
       /* Force portrait layout */
+      @media screen and (orientation: portrait) {
+        html {
+          /* Lock screen to portrait */
+          min-height: -webkit-fill-available;
+        }
+      }
       @media (orientation: landscape) {
         .stage {
           height: 100svh;
@@ -57,6 +63,10 @@
         video {
           /* Ensure video feed is rotated to portrait in landscape mode */
           transform: scale(1.1); /* Slight scale up to prevent gaps */
+        }
+        html {
+          /* Request portrait mode on supported devices */
+          min-height: -webkit-fill-available;
         }
       }
 
