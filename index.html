@@ -408,13 +408,6 @@
           await loadModels();
           await setupCamera();
 
-          // Show welcome message
-          showPopup(
-            "👋 Show me your expressions!<br>I'll tell you what I see...",
-            1,
-            true
-          );
-
           const opts = new faceapi.TinyFaceDetectorOptions({
             inputSize: 320,
             scoreThreshold: 0.5,
