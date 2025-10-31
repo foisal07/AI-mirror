@@ -37,6 +37,38 @@
         object-fit: cover;
       }
 
+      /* Loading overlay */
+      #loader {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(0, 0, 0, 0.45);
+        z-index: 20;
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 0.25s ease;
+      }
+      #loader.show {
+        opacity: 1;
+        pointer-events: auto;
+      }
+      .spinner {
+        width: 56px;
+        height: 56px;
+        border-radius: 50%;
+        border: 6px solid rgba(255, 255, 255, 0.12);
+        border-top-color: #fff;
+        animation: spin 1s linear infinite;
+        box-shadow: 0 6px 24px rgba(0, 0, 0, 0.5);
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
       #hud {
         position: absolute;
         left: 12px;
@@ -84,6 +116,21 @@
       #popup.show {
         opacity: 1;
         transform: translateX(-50%) scale(1);
+        animation: pop 0.36s cubic-bezier(0.2, 0.9, 0.3, 1);
+      }
+      @keyframes pop {
+        0% {
+          transform: translateX(-50%) scale(0.92);
+          opacity: 0;
+        }
+        60% {
+          transform: translateX(-50%) scale(1.04);
+          opacity: 1;
+        }
+        100% {
+          transform: translateX(-50%) scale(1);
+          opacity: 1;
+        }
       }
       #popup small {
         opacity: 0.75;
@@ -108,6 +155,11 @@
       <button id="startBtn" aria-label="Start">▶ Start</button>
     </div>
 
+    <!-- Loading overlay -->
+    <div id="loader" aria-hidden="true">
+      <div class="spinner" role="status" aria-hidden="true"></div>
+    </div>
+
     <!-- Popup element -->
     <div id="popup" role="status" aria-live="polite"></div>
 
@@ -121,6 +173,10 @@
       const hud = document.getElementById("hud");
       const startBtn = document.getElementById("startBtn");
       const popup = document.getElementById("popup");
+      const loader = document.getElementById("loader");
+
+      // speech permission flag — enabled by explicit user gesture (Start button)
+      let allowSpeech = false;
 
       // Fun expression messages
       const expressionMessages = {
@@ -155,6 +211,8 @@
           popup.innerHTML = `${funMessage} <small>${Math.round(
             conf * 100
           )}%</small>`;
+          // speak the message when allowed by a prior user gesture
+          speak(funMessage);
         }
         popup.classList.add("show");
         clearTimeout(popupTimer);
@@ -162,6 +220,18 @@
           () => popup.classList.remove("show"),
           isWelcome ? 4000 : 1600
         );
+      }
+
+      function speak(text) {
+        try {
+          if (!allowSpeech) return;
+          const u = new SpeechSynthesisUtterance(text);
+          u.lang = navigator.language || "en-US";
+          speechSynthesis.cancel();
+          speechSynthesis.speak(u);
+        } catch (e) {
+          console.warn("speech failed", e);
+        }
       }
 
       // Expression smoothing / change detection
@@ -252,21 +322,25 @@
             : `/${repoName}/models`;
 
         hud.textContent = "loading models…";
+        showLoader();
         try {
           await Promise.all([
             faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
             faceapi.nets.faceExpressionNet.loadFromUri(MODEL_URL),
           ]);
           hud.textContent = "models ready";
+          hideLoader();
         } catch (error) {
           console.error("Error loading models:", error);
           hud.textContent = `Error loading models from ${MODEL_URL}. Check console for details.`;
+          hideLoader();
           throw error;
         }
       }
 
       async function setupCamera() {
         hud.textContent = "requesting camera…";
+        showLoader();
         const stream = await navigator.mediaDevices.getUserMedia({
           video: {
             facingMode: "user",
@@ -280,6 +354,14 @@
         overlay.width = video.videoWidth;
         overlay.height = video.videoHeight;
         hud.textContent = "camera ready";
+        hideLoader();
+      }
+
+      function showLoader() {
+        loader.classList.add("show");
+      }
+      function hideLoader() {
+        loader.classList.remove("show");
       }
 
       async function startApp() {
@@ -358,7 +440,10 @@
       }
 
       // Mobile needs a user gesture
-      startBtn.addEventListener("click", startApp);
+      startBtn.addEventListener("click", (ev) => {
+        allowSpeech = true;
+        startApp();
+      });
       // Try auto-start on desktop
       window.addEventListener("load", () => {
         startApp().catch(() => {});
