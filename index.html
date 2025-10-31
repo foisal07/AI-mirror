@@ -3,6 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="orientation" content="portrait" />
     <title>AI Mirror — Expression Popup</title>
     <style>
       :root {
@@ -16,25 +17,89 @@
         background: #0b0b0c;
         color: #fff;
         font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+        /* prevent scroll/bounce on mobile */
+        position: fixed;
+        inset: 0;
+        overflow: hidden;
       }
       .wrap {
         min-height: 100svh;
-        display: grid;
-        place-items: center;
-        gap: 14px;
+        display: block;
         padding: 0;
       }
       .stage {
         position: relative;
-        width: 100vw;
-        height: 100vh;
+        width: 100%;
+        height: 100svh;
+        /* Force portrait aspect ratio even in landscape */
+        max-width: min(100%, calc(100svh * 0.5625)); /* 9:16 ratio */
+        margin: 0 auto;
+        background: #000;
       }
       video,
       canvas {
+        position: absolute;
+        inset: 0;
         width: 100%;
         height: 100%;
         display: block;
         object-fit: cover;
+        /* ensure video stays centered */
+        transform-origin: center;
+      }
+
+      /* Force portrait layout */
+      @media screen and (orientation: portrait) {
+        html {
+          /* Lock screen to portrait */
+          min-height: -webkit-fill-available;
+        }
+      }
+      @media (orientation: landscape) {
+        .stage {
+          height: 100svh;
+          max-width: min(100%, calc(100svh * 0.5625));
+        }
+        video {
+          /* Ensure video feed is rotated to portrait in landscape mode */
+          transform: scale(1.1); /* Slight scale up to prevent gaps */
+        }
+        html {
+          /* Request portrait mode on supported devices */
+          min-height: -webkit-fill-available;
+        }
+      }
+
+      /* Loading overlay */
+      #loader {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(0, 0, 0, 0.45);
+        z-index: 20;
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 0.25s ease;
+      }
+      #loader.show {
+        opacity: 1;
+        pointer-events: auto;
+      }
+      .spinner {
+        width: 56px;
+        height: 56px;
+        border-radius: 50%;
+        border: 6px solid rgba(255, 255, 255, 0.12);
+        border-top-color: #fff;
+        animation: spin 1s linear infinite;
+        box-shadow: 0 6px 24px rgba(0, 0, 0, 0.5);
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
       }
 
       #hud {
@@ -42,6 +107,8 @@
         left: 12px;
         top: 12px;
         z-index: 5;
+        /* hide HUD for fullscreen camera mode */
+        display: none !important;
         padding: 8px 12px;
         font-size: 14px;
         border-radius: 12px;
@@ -59,6 +126,8 @@
         color: #fff;
         font-size: 14px;
         box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
+        /* hide start button under the camera for fully immersive fullscreen */
+        display: none !important;
       }
 
       /* Popup / toast */
@@ -67,26 +136,44 @@
         left: 50%;
         top: 12%;
         transform: translateX(-50%) scale(0.98);
-        padding: 12px 16px;
+        padding: 16px 24px;
         border-radius: 14px;
-        background: rgba(10, 10, 14, 0.85);
+        background: rgba(10, 10, 14, 0.9);
         box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45),
-          inset 0 0 0 1px rgba(255, 255, 255, 0.08);
-        font-size: 16px;
+          inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+        font-size: 20px;
+        font-weight: 600;
         letter-spacing: 0.2px;
         z-index: 9999;
         opacity: 0;
         pointer-events: none;
-        transition: opacity 0.18s ease, transform 0.18s ease;
+        transition: opacity 0.3s ease, transform 0.3s ease;
+        text-align: center;
       }
       #popup.show {
         opacity: 1;
         transform: translateX(-50%) scale(1);
+        animation: pop 0.36s cubic-bezier(0.2, 0.9, 0.3, 1);
+      }
+      @keyframes pop {
+        0% {
+          transform: translateX(-50%) scale(0.92);
+          opacity: 0;
+        }
+        60% {
+          transform: translateX(-50%) scale(1.04);
+          opacity: 1;
+        }
+        100% {
+          transform: translateX(-50%) scale(1);
+          opacity: 1;
+        }
       }
       #popup small {
         opacity: 0.75;
-        font-size: 12px;
-        margin-left: 0.6ch;
+        font-size: 14px;
+        margin-left: 0.8ch;
+        font-weight: normal;
       }
 
       /* Optional: expression label above box */
@@ -105,6 +192,11 @@
       <button id="startBtn" aria-label="Start">▶ Start</button>
     </div>
 
+    <!-- Loading overlay -->
+    <div id="loader" aria-hidden="true">
+      <div class="spinner" role="status" aria-hidden="true"></div>
+    </div>
+
     <!-- Popup element -->
     <div id="popup" role="status" aria-live="polite"></div>
 
@@ -118,25 +210,113 @@
       const hud = document.getElementById("hud");
       const startBtn = document.getElementById("startBtn");
       const popup = document.getElementById("popup");
+      const loader = document.getElementById("loader");
+
+      // speech permission flag — enabled by explicit user gesture (Start button)
+      let allowSpeech = true;
+
+      // Fun expression messages
+      const expressionMessages = {
+        happy: ["Radiant Comrade!", "Joy Spreader!", "Sunshine Champion!"],
+        sad: ["Captain Serious", "Melancholy Poet", "Blue Mood Master"],
+        angry: ["Thunder Face!", "Mighty Grumpy!", "Epic Rage Master!"],
+        surprised: [
+          "Shock Commander!",
+          "Wide-Eyed Wonder!",
+          "Surprise Expert!",
+        ],
+        neutral: ["Zen Master", "Poker Face Pro", "Calm Keeper"],
+        fearful: ["Brave Explorer", "Adventure Seeker", "Thrill Master"],
+        disgusted: ["Critic Supreme", "Taste Guardian", "Opinion Master"],
+      };
+
+      // Short witty subtitles to show under the main popup message
+      const expressionSubtitles = {
+        happy: [
+          "Warning: excessive joy detected.",
+          "Smile quota exceeded — congratulations!",
+        ],
+        sad: [
+          "Expert-level brooding in progress.",
+          "Steam: handle with kindness.",
+        ],
+        angry: ["Calm breathing recommended.", "Hot vibes cooling down soon."],
+        surprised: ["Blink to confirm reality.", "Alert: curiosity peaked!"],
+        neutral: ["Zen mode activated.", "Stoic and stylish."],
+        fearful: ["Adrenaline: optional.", "Courage boots are on backorder."],
+        disgusted: ["Tastebuds offended.", "Opinionated and proud."],
+        default: [
+          "Mood detected — processing witty comment.",
+          "Nice face, nice vibes.",
+        ],
+      };
+
+      function getRandomSubtitle(expression) {
+        const arr =
+          expressionSubtitles[expression.toLowerCase()] ||
+          expressionSubtitles.default;
+        return arr[Math.floor(Math.random() * arr.length)];
+      }
+
+      function getRandomMessage(expression) {
+        const messages = expressionMessages[expression.toLowerCase()] || [
+          "Mood Master",
+        ];
+        return messages[Math.floor(Math.random() * messages.length)];
+      }
 
       // Popup helpers
       let popupTimer = null;
-      function showPopup(text, conf) {
+      function showPopup(text, conf, isWelcome = false) {
         popup.textContent = "";
-        popup.innerHTML = `${text} <small>${Math.round(conf * 100)}%</small>`;
+        if (isWelcome) {
+          popup.innerHTML = text;
+        } else {
+          const funMessage = getRandomMessage(text);
+          const subtitle = getRandomSubtitle(text);
+          // If the main message matches the special long heading, append playful emojis
+          const specialHeading =
+            "We noticed you didn’t smile. Recreational scrolling reduced.";
+          const emojiTail = funMessage === specialHeading ? " 😅📵" : "";
+          popup.innerHTML = `<div class=\"popup-main\">${funMessage}${emojiTail}</div><small>${subtitle}</small>`;
+          // speak the main message when allowed by a prior user gesture
+          speak(funMessage);
+        }
         popup.classList.add("show");
         clearTimeout(popupTimer);
-        popupTimer = setTimeout(() => popup.classList.remove("show"), 1600);
+        popupTimer = setTimeout(
+          () => popup.classList.remove("show"),
+          isWelcome ? 4000 : 2500
+        );
+      }
+
+      function speak(text) {
+        try {
+          if (!allowSpeech) return;
+          const u = new SpeechSynthesisUtterance(text);
+          u.lang = navigator.language || "en-US";
+          speechSynthesis.cancel();
+          speechSynthesis.speak(u);
+        } catch (e) {
+          console.warn("speech failed", e);
+        }
       }
 
       // Expression smoothing / change detection
-      const SMOOTH_N = 6; // moving average window (frames)
+      const SMOOTH_N = 4; // moving average window (frames)
       let history = []; // [{name, score}]
       let lastShown = { name: "", score: 0 };
-      const CHANGE_THRESH = 0.12; // minimum change in score to consider "new"
-      const SCORE_MIN_TO_ANNOUNCE = 0.55; // only announce if top score >= 0.55
-      const MIN_MS_BETWEEN_POPUPS = 900;
+      const CHANGE_THRESH = 0.1; // minimum change in score to consider "new"
+      const SCORE_MIN_TO_ANNOUNCE = 0.45; // only announce if top score >= 0.45
+      const MIN_MS_BETWEEN_POPUPS = 3000; // 3 seconds between expressions
       let lastPopupAt = 0;
+      // track whether a face is currently visible (to show prompt once per appearance)
+      let faceSeen = false;
+      // track when expressions should start being announced
+      let startExpressionsTime = 0;
+      // track when face disappeared
+      let faceDisappearedTime = 0;
+      const FACE_ABSENT_THRESHOLD = 30000; // 30 seconds in milliseconds
 
       function bestExpression(expressions) {
         let best = { name: "unknown", score: 0 };
@@ -163,6 +343,15 @@
 
       function maybeAnnounce(best) {
         const now = Date.now();
+        // Don't show expressions until after the delay
+        if (now < startExpressionsTime) return;
+
+        // Clear the welcome message when we start showing expressions
+        if (lastShown.name === "") {
+          popup.classList.remove("show");
+          clearTimeout(popupTimer);
+        }
+
         const changedName = best.name !== lastShown.name;
         const changedScore =
           Math.abs(best.score - (lastShown.score || 0)) >= CHANGE_THRESH;
@@ -207,22 +396,39 @@
       }
 
       async function loadModels() {
-        const MODEL_URL = "./models"; // relative path for GitHub Pages subpath
+        // Handle both local and GitHub Pages paths
+        const repoName = "AI-mirror";
+        const MODEL_URL =
+          location.hostname === "localhost" || location.hostname === "127.0.0.1"
+            ? "./models"
+            : `/${repoName}/models`;
+
         hud.textContent = "loading models…";
-        await Promise.all([
-          faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
-          faceapi.nets.faceExpressionNet.loadFromUri(MODEL_URL),
-        ]);
-        hud.textContent = "models ready";
+        showLoader();
+        try {
+          await Promise.all([
+            faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+            faceapi.nets.faceExpressionNet.loadFromUri(MODEL_URL),
+          ]);
+          hud.textContent = "models ready";
+          hideLoader();
+        } catch (error) {
+          console.error("Error loading models:", error);
+          hud.textContent = `Error loading models from ${MODEL_URL}. Check console for details.`;
+          hideLoader();
+          throw error;
+        }
       }
 
       async function setupCamera() {
         hud.textContent = "requesting camera…";
+        showLoader();
         const stream = await navigator.mediaDevices.getUserMedia({
           video: {
             facingMode: "user",
-            width: { ideal: 1280 },
-            height: { ideal: 720 },
+            width: { ideal: 720 },
+            height: { ideal: 1280 },
+            aspectRatio: { ideal: 0.5625 }, // 9:16 portrait ratio
           },
           audio: false,
         });
@@ -231,6 +437,14 @@
         overlay.width = video.videoWidth;
         overlay.height = video.videoHeight;
         hud.textContent = "camera ready";
+        hideLoader();
+      }
+
+      function showLoader() {
+        loader.classList.add("show");
+      }
+      function hideLoader() {
+        loader.classList.remove("show");
       }
 
       async function startApp() {
@@ -254,6 +468,19 @@
             ctx.clearRect(0, 0, overlay.width, overlay.height);
 
             if (result) {
+              const now = Date.now();
+              // Show popup only if face has been gone for 30 seconds
+              if (
+                !faceSeen &&
+                (now - faceDisappearedTime >= FACE_ABSENT_THRESHOLD ||
+                  faceDisappearedTime === 0)
+              ) {
+                showPopup("👀 I see you — show me a face!", 1, true);
+                faceSeen = true;
+                // Set the time when we should start showing expressions (1 second from now)
+                startExpressionsTime = now + 1000;
+              }
+
               const { box } = result.detection;
               drawBox(box);
 
@@ -279,6 +506,13 @@
 
               hud.textContent = `expression: ${best.name} (${pct}%)`;
             } else {
+              // reset face detection state when face disappears
+              if (faceSeen) {
+                // Only update disappearance time if we had seen a face
+                faceDisappearedTime = Date.now();
+              }
+              faceSeen = false;
+              startExpressionsTime = 0;
               hud.textContent = "no face detected";
             }
 
@@ -294,7 +528,10 @@
       }
 
       // Mobile needs a user gesture
-      startBtn.addEventListener("click", startApp);
+      startBtn.addEventListener("click", (ev) => {
+        allowSpeech = true;
+        startApp();
+      });
       // Try auto-start on desktop
       window.addEventListener("load", () => {
         startApp().catch(() => {});
