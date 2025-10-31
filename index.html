@@ -312,6 +312,12 @@
         // Don't show expressions until after the delay
         if (now < startExpressionsTime) return;
 
+        // Clear the welcome message when we start showing expressions
+        if (lastShown.name === "") {
+          popup.classList.remove("show");
+          clearTimeout(popupTimer);
+        }
+
         const changedName = best.name !== lastShown.name;
         const changedScore =
           Math.abs(best.score - (lastShown.score || 0)) >= CHANGE_THRESH;
