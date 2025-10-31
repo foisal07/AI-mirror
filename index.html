@@ -67,17 +67,19 @@
         left: 50%;
         top: 12%;
         transform: translateX(-50%) scale(0.98);
-        padding: 12px 16px;
+        padding: 16px 24px;
         border-radius: 14px;
-        background: rgba(10, 10, 14, 0.85);
+        background: rgba(10, 10, 14, 0.9);
         box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45),
-          inset 0 0 0 1px rgba(255, 255, 255, 0.08);
-        font-size: 16px;
+          inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+        font-size: 20px;
+        font-weight: 600;
         letter-spacing: 0.2px;
         z-index: 9999;
         opacity: 0;
         pointer-events: none;
-        transition: opacity 0.18s ease, transform 0.18s ease;
+        transition: opacity 0.3s ease, transform 0.3s ease;
+        text-align: center;
       }
       #popup.show {
         opacity: 1;
@@ -85,8 +87,9 @@
       }
       #popup small {
         opacity: 0.75;
-        font-size: 12px;
-        margin-left: 0.6ch;
+        font-size: 14px;
+        margin-left: 0.8ch;
+        font-weight: normal;
       }
 
       /* Optional: expression label above box */
@@ -119,14 +122,46 @@
       const startBtn = document.getElementById("startBtn");
       const popup = document.getElementById("popup");
 
+      // Fun expression messages
+      const expressionMessages = {
+        happy: ["Radiant Comrade!", "Joy Spreader!", "Sunshine Champion!"],
+        sad: ["Captain Serious", "Melancholy Poet", "Blue Mood Master"],
+        angry: ["Thunder Face!", "Mighty Grumpy!", "Epic Rage Master!"],
+        surprised: [
+          "Shock Commander!",
+          "Wide-Eyed Wonder!",
+          "Surprise Expert!",
+        ],
+        neutral: ["Zen Master", "Poker Face Pro", "Calm Keeper"],
+        fearful: ["Brave Explorer", "Adventure Seeker", "Thrill Master"],
+        disgusted: ["Critic Supreme", "Taste Guardian", "Opinion Master"],
+      };
+
+      function getRandomMessage(expression) {
+        const messages = expressionMessages[expression.toLowerCase()] || [
+          "Mood Master",
+        ];
+        return messages[Math.floor(Math.random() * messages.length)];
+      }
+
       // Popup helpers
       let popupTimer = null;
-      function showPopup(text, conf) {
+      function showPopup(text, conf, isWelcome = false) {
         popup.textContent = "";
-        popup.innerHTML = `${text} <small>${Math.round(conf * 100)}%</small>`;
+        if (isWelcome) {
+          popup.innerHTML = text;
+        } else {
+          const funMessage = getRandomMessage(text);
+          popup.innerHTML = `${funMessage} <small>${Math.round(
+            conf * 100
+          )}%</small>`;
+        }
         popup.classList.add("show");
         clearTimeout(popupTimer);
-        popupTimer = setTimeout(() => popup.classList.remove("show"), 1600);
+        popupTimer = setTimeout(
+          () => popup.classList.remove("show"),
+          isWelcome ? 4000 : 1600
+        );
       }
 
       // Expression smoothing / change detection
@@ -238,6 +273,13 @@
           startBtn.disabled = true;
           await loadModels();
           await setupCamera();
+
+          // Show welcome message
+          showPopup(
+            "👋 Show me your expressions!<br>I'll tell you what I see...",
+            1,
+            true
+          );
 
           const opts = new faceapi.TinyFaceDetectorOptions({
             inputSize: 320,
