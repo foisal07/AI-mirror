@@ -283,6 +283,9 @@
       let faceSeen = false;
       // track when expressions should start being announced
       let startExpressionsTime = 0;
+      // track when face disappeared
+      let faceDisappearedTime = 0;
+      const FACE_ABSENT_THRESHOLD = 30000; // 30 seconds in milliseconds
 
       function bestExpression(expressions) {
         let best = { name: "unknown", score: 0 };
@@ -434,12 +437,17 @@
             ctx.clearRect(0, 0, overlay.width, overlay.height);
 
             if (result) {
-              // Show popup whenever a face appears (after being absent)
-              if (!faceSeen) {
+              const now = Date.now();
+              // Show popup only if face has been gone for 30 seconds
+              if (
+                !faceSeen &&
+                (now - faceDisappearedTime >= FACE_ABSENT_THRESHOLD ||
+                  faceDisappearedTime === 0)
+              ) {
                 showPopup("👀 I see you — show me a face!", 1, true);
                 faceSeen = true;
                 // Set the time when we should start showing expressions (1 second from now)
-                startExpressionsTime = Date.now() + 1000;
+                startExpressionsTime = now + 1000;
               }
 
               const { box } = result.detection;
@@ -468,6 +476,10 @@
               hud.textContent = `expression: ${best.name} (${pct}%)`;
             } else {
               // reset face detection state when face disappears
+              if (faceSeen) {
+                // Only update disappearance time if we had seen a face
+                faceDisappearedTime = Date.now();
+              }
               faceSeen = false;
               startExpressionsTime = 0;
               hud.textContent = "no face detected";
