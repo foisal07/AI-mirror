@@ -281,6 +281,8 @@
       let lastPopupAt = 0;
       // track whether a face is currently visible (to show prompt once per appearance)
       let faceSeen = false;
+      // track when expressions should start being announced
+      let startExpressionsTime = 0;
 
       function bestExpression(expressions) {
         let best = { name: "unknown", score: 0 };
@@ -307,6 +309,9 @@
 
       function maybeAnnounce(best) {
         const now = Date.now();
+        // Don't show expressions until after the delay
+        if (now < startExpressionsTime) return;
+
         const changedName = best.name !== lastShown.name;
         const changedScore =
           Math.abs(best.score - (lastShown.score || 0)) >= CHANGE_THRESH;
@@ -427,6 +432,8 @@
               if (!faceSeen) {
                 showPopup("👀 I see you — show me a face!", 1, true);
                 faceSeen = true;
+                // Set the time when we should start showing expressions (1 second from now)
+                startExpressionsTime = Date.now() + 1000;
               }
 
               const { box } = result.detection;
@@ -454,8 +461,9 @@
 
               hud.textContent = `expression: ${best.name} (${pct}%)`;
             } else {
-              // reset faceSeen so prompt will show again when face reappears
+              // reset face detection state when face disappears
               faceSeen = false;
+              startExpressionsTime = 0;
               hud.textContent = "no face detected";
             }
 
