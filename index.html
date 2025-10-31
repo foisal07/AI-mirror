@@ -1,232 +1,304 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>AI Mirror — Expression Popup</title>
-  <style>
-    :root { color-scheme: dark; }
-    * { box-sizing: border-box; }
-    body { margin:0; background:#0b0b0c; color:#fff; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
-    .wrap { min-height:100svh; display:grid; place-items:center; gap:14px; padding:24px; }
-    .stage { position:relative; width:min(760px, 94vw); }
-    video, canvas { width:100%; height:auto; display:block; border-radius:16px; }
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>AI Mirror — Expression Popup</title>
+    <style>
+      :root {
+        color-scheme: dark;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: #0b0b0c;
+        color: #fff;
+        font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      }
+      .wrap {
+        min-height: 100svh;
+        display: grid;
+        place-items: center;
+        gap: 14px;
+        padding: 0;
+      }
+      .stage {
+        position: relative;
+        width: 100vw;
+        height: 100vh;
+      }
+      video,
+      canvas {
+        width: 100%;
+        height: 100%;
+        display: block;
+        object-fit: cover;
+      }
 
-    #hud {
-      position:absolute; left:12px; top:12px; z-index:5;
-      padding:8px 12px; font-size:14px; border-radius:12px;
-      background:rgba(20,20,24,.65); backdrop-filter: blur(6px);
-    }
+      #hud {
+        position: absolute;
+        left: 12px;
+        top: 12px;
+        z-index: 5;
+        padding: 8px 12px;
+        font-size: 14px;
+        border-radius: 12px;
+        background: rgba(20, 20, 24, 0.65);
+        backdrop-filter: blur(6px);
+      }
 
-    #startBtn {
-      appearance:none; border:0; cursor:pointer; border-radius:12px;
-      padding:10px 14px; background:#1e1e24; color:#fff; font-size:14px;
-      box-shadow:0 2px 10px rgba(0,0,0,.25);
-    }
+      #startBtn {
+        appearance: none;
+        border: 0;
+        cursor: pointer;
+        border-radius: 12px;
+        padding: 10px 14px;
+        background: #1e1e24;
+        color: #fff;
+        font-size: 14px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
+      }
 
-    /* Popup / toast */
-    #popup {
-      position: fixed; left: 50%; top: 12%;
-      transform: translateX(-50%) scale(0.98);
-      padding: 12px 16px; border-radius: 14px;
-      background: rgba(10,10,14,0.85);
-      box-shadow: 0 10px 30px rgba(0,0,0,.45), inset 0 0 0 1px rgba(255,255,255,.08);
-      font-size: 16px; letter-spacing:.2px; z-index: 9999;
-      opacity: 0; pointer-events: none;
-      transition: opacity .18s ease, transform .18s ease;
-    }
-    #popup.show {
-      opacity: 1; transform: translateX(-50%) scale(1);
-    }
-    #popup small { opacity:.75; font-size:12px; margin-left:.6ch; }
+      /* Popup / toast */
+      #popup {
+        position: fixed;
+        left: 50%;
+        top: 12%;
+        transform: translateX(-50%) scale(0.98);
+        padding: 12px 16px;
+        border-radius: 14px;
+        background: rgba(10, 10, 14, 0.85);
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45),
+          inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+        font-size: 16px;
+        letter-spacing: 0.2px;
+        z-index: 9999;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.18s ease, transform 0.18s ease;
+      }
+      #popup.show {
+        opacity: 1;
+        transform: translateX(-50%) scale(1);
+      }
+      #popup small {
+        opacity: 0.75;
+        font-size: 12px;
+        margin-left: 0.6ch;
+      }
 
-    /* Optional: expression label above box */
-    .label-bg { fill: rgba(0,0,0,0.6); }
-  </style>
-</head>
-<body>
-  <div class="wrap">
-    <div class="stage">
-      <div id="hud">loading…</div>
-      <video id="video" autoplay muted playsinline></video>
-      <canvas id="overlay"></canvas>
+      /* Optional: expression label above box */
+      .label-bg {
+        fill: rgba(0, 0, 0, 0.6);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <div class="stage">
+        <div id="hud">loading…</div>
+        <video id="video" autoplay muted playsinline></video>
+        <canvas id="overlay"></canvas>
+      </div>
+      <button id="startBtn" aria-label="Start">▶ Start</button>
     </div>
-    <button id="startBtn" aria-label="Start">▶ Start</button>
-  </div>
 
-  <!-- Popup element -->
-  <div id="popup" role="status" aria-live="polite"></div>
+    <!-- Popup element -->
+    <div id="popup" role="status" aria-live="polite"></div>
 
-  <!-- Only face-api.js (no separate TFJS tag) -->
-  <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+    <!-- Only face-api.js (no separate TFJS tag) -->
+    <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
 
-  <script>
-    const video    = document.getElementById('video');
-    const overlay  = document.getElementById('overlay');
-    const ctx      = overlay.getContext('2d');
-    const hud      = document.getElementById('hud');
-    const startBtn = document.getElementById('startBtn');
-    const popup    = document.getElementById('popup');
+    <script>
+      const video = document.getElementById("video");
+      const overlay = document.getElementById("overlay");
+      const ctx = overlay.getContext("2d");
+      const hud = document.getElementById("hud");
+      const startBtn = document.getElementById("startBtn");
+      const popup = document.getElementById("popup");
 
-    // Popup helpers
-    let popupTimer = null;
-    function showPopup(text, conf) {
-      popup.textContent = '';
-      popup.innerHTML = `${text} <small>${Math.round(conf*100)}%</small>`;
-      popup.classList.add('show');
-      clearTimeout(popupTimer);
-      popupTimer = setTimeout(() => popup.classList.remove('show'), 1600);
-    }
-
-    // Expression smoothing / change detection
-    const SMOOTH_N = 6; // moving average window (frames)
-    let history = [];   // [{name, score}]
-    let lastShown = { name: '', score: 0 };
-    const CHANGE_THRESH = 0.12; // minimum change in score to consider "new"
-    const SCORE_MIN_TO_ANNOUNCE = 0.55; // only announce if top score >= 0.55
-    const MIN_MS_BETWEEN_POPUPS = 900;
-    let lastPopupAt = 0;
-
-    function bestExpression(expressions) {
-      let best = { name: 'unknown', score: 0 };
-      for (const [name, score] of Object.entries(expressions)) if (score > best.score) best = { name, score };
-      return best;
-    }
-
-    function smoothBest(newBest) {
-      history.push(newBest);
-      if (history.length > SMOOTH_N) history.shift();
-      // average scores per name seen in history
-      const agg = {};
-      history.forEach(({name, score}) => { agg[name] = (agg[name] || 0) + score; });
-      const smoothed = Object.entries(agg).map(([name, sum]) => ({ name, score: sum / history.length }));
-      smoothed.sort((a,b) => b.score - a.score);
-      return smoothed[0] || newBest;
-    }
-
-    function maybeAnnounce(best) {
-      const now = Date.now();
-      const changedName = best.name !== lastShown.name;
-      const changedScore = Math.abs(best.score - (lastShown.score || 0)) >= CHANGE_THRESH;
-      const confident = best.score >= SCORE_MIN_TO_ANNOUNCE;
-      const cooledDown = (now - lastPopupAt) >= MIN_MS_BETWEEN_POPUPS;
-
-      if (confident && cooledDown && (changedName || changedScore)) {
-        showPopup(best.name, best.score);
-        lastShown = best;
-        lastPopupAt = now;
+      // Popup helpers
+      let popupTimer = null;
+      function showPopup(text, conf) {
+        popup.textContent = "";
+        popup.innerHTML = `${text} <small>${Math.round(conf * 100)}%</small>`;
+        popup.classList.add("show");
+        clearTimeout(popupTimer);
+        popupTimer = setTimeout(() => popup.classList.remove("show"), 1600);
       }
-    }
 
-    function drawBox(box) {
-      ctx.strokeStyle = 'rgba(255,255,255,.9)';
-      ctx.lineWidth = 2;
-      ctx.setLineDash([]);
-      ctx.strokeRect(box.x, box.y, box.width, box.height);
-    }
+      // Expression smoothing / change detection
+      const SMOOTH_N = 6; // moving average window (frames)
+      let history = []; // [{name, score}]
+      let lastShown = { name: "", score: 0 };
+      const CHANGE_THRESH = 0.12; // minimum change in score to consider "new"
+      const SCORE_MIN_TO_ANNOUNCE = 0.55; // only announce if top score >= 0.55
+      const MIN_MS_BETWEEN_POPUPS = 900;
+      let lastPopupAt = 0;
 
-    function drawLabelOverBox(box, text) {
-      const pad = 6;
-      ctx.font = '14px system-ui, sans-serif';
-      const tw = ctx.measureText(text).width, th = 18;
-      const tx = box.x + Math.max(0, (box.width - tw) / 2);
-      const ty = Math.max(0, box.y - th - 8);
-      ctx.fillStyle = 'rgba(0,0,0,0.6)';
-      ctx.fillRect(tx - pad, ty - th + 4, tw + pad * 2, th);
-      ctx.fillStyle = 'white';
-      ctx.fillText(text, tx, ty);
-    }
+      function bestExpression(expressions) {
+        let best = { name: "unknown", score: 0 };
+        for (const [name, score] of Object.entries(expressions))
+          if (score > best.score) best = { name, score };
+        return best;
+      }
 
-    function ensureCanvasSizeMatchesVideo() {
-      if (overlay.width !== video.videoWidth || overlay.height !== video.videoHeight) {
-        overlay.width  = video.videoWidth;
+      function smoothBest(newBest) {
+        history.push(newBest);
+        if (history.length > SMOOTH_N) history.shift();
+        // average scores per name seen in history
+        const agg = {};
+        history.forEach(({ name, score }) => {
+          agg[name] = (agg[name] || 0) + score;
+        });
+        const smoothed = Object.entries(agg).map(([name, sum]) => ({
+          name,
+          score: sum / history.length,
+        }));
+        smoothed.sort((a, b) => b.score - a.score);
+        return smoothed[0] || newBest;
+      }
+
+      function maybeAnnounce(best) {
+        const now = Date.now();
+        const changedName = best.name !== lastShown.name;
+        const changedScore =
+          Math.abs(best.score - (lastShown.score || 0)) >= CHANGE_THRESH;
+        const confident = best.score >= SCORE_MIN_TO_ANNOUNCE;
+        const cooledDown = now - lastPopupAt >= MIN_MS_BETWEEN_POPUPS;
+
+        if (confident && cooledDown && (changedName || changedScore)) {
+          showPopup(best.name, best.score);
+          lastShown = best;
+          lastPopupAt = now;
+        }
+      }
+
+      function drawBox(box) {
+        ctx.strokeStyle = "rgba(255,255,255,.9)";
+        ctx.lineWidth = 2;
+        ctx.setLineDash([]);
+        ctx.strokeRect(box.x, box.y, box.width, box.height);
+      }
+
+      function drawLabelOverBox(box, text) {
+        const pad = 6;
+        ctx.font = "14px system-ui, sans-serif";
+        const tw = ctx.measureText(text).width,
+          th = 18;
+        const tx = box.x + Math.max(0, (box.width - tw) / 2);
+        const ty = Math.max(0, box.y - th - 8);
+        ctx.fillStyle = "rgba(0,0,0,0.6)";
+        ctx.fillRect(tx - pad, ty - th + 4, tw + pad * 2, th);
+        ctx.fillStyle = "white";
+        ctx.fillText(text, tx, ty);
+      }
+
+      function ensureCanvasSizeMatchesVideo() {
+        if (
+          overlay.width !== video.videoWidth ||
+          overlay.height !== video.videoHeight
+        ) {
+          overlay.width = video.videoWidth;
+          overlay.height = video.videoHeight;
+        }
+      }
+
+      async function loadModels() {
+        const MODEL_URL = "./models"; // relative path for GitHub Pages subpath
+        hud.textContent = "loading models…";
+        await Promise.all([
+          faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+          faceapi.nets.faceExpressionNet.loadFromUri(MODEL_URL),
+        ]);
+        hud.textContent = "models ready";
+      }
+
+      async function setupCamera() {
+        hud.textContent = "requesting camera…";
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: "user",
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
+          },
+          audio: false,
+        });
+        video.srcObject = stream;
+        await new Promise((r) => (video.onloadedmetadata = r));
+        overlay.width = video.videoWidth;
         overlay.height = video.videoHeight;
+        hud.textContent = "camera ready";
       }
-    }
 
-    async function loadModels() {
-      const MODEL_URL = './models'; // relative path for GitHub Pages subpath
-      hud.textContent = 'loading models…';
-      await Promise.all([
-        faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
-        faceapi.nets.faceExpressionNet.loadFromUri(MODEL_URL),
-      ]);
-      hud.textContent = 'models ready';
-    }
+      async function startApp() {
+        try {
+          startBtn.disabled = true;
+          await loadModels();
+          await setupCamera();
 
-    async function setupCamera() {
-      hud.textContent = 'requesting camera…';
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } },
-        audio: false
-      });
-      video.srcObject = stream;
-      await new Promise(r => video.onloadedmetadata = r);
-      overlay.width  = video.videoWidth;
-      overlay.height = video.videoHeight;
-      hud.textContent = 'camera ready';
-    }
+          const opts = new faceapi.TinyFaceDetectorOptions({
+            inputSize: 320,
+            scoreThreshold: 0.5,
+          });
+          hud.textContent = "detecting…";
 
-    async function startApp() {
-      try {
-        startBtn.disabled = true;
-        await loadModels();
-        await setupCamera();
+          async function tick() {
+            ensureCanvasSizeMatchesVideo();
+            const result = await faceapi
+              .detectSingleFace(video, opts)
+              .withFaceExpressions();
 
-        const opts = new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.5 });
-        hud.textContent = 'detecting…';
+            ctx.clearRect(0, 0, overlay.width, overlay.height);
 
-        async function tick() {
-          ensureCanvasSizeMatchesVideo();
-          const result = await faceapi
-            .detectSingleFace(video, opts)
-            .withFaceExpressions();
+            if (result) {
+              const { box } = result.detection;
+              drawBox(box);
 
-          ctx.clearRect(0, 0, overlay.width, overlay.height);
+              const expr = result.expressions || {};
+              const keys = Object.keys(expr);
 
-          if (result) {
-            const { box } = result.detection;
-            drawBox(box);
+              if (!keys.length) {
+                hud.textContent =
+                  "face found — expressions missing (check ./models)";
+                requestAnimationFrame(tick);
+                return;
+              }
 
-            const expr = result.expressions || {};
-            const keys = Object.keys(expr);
+              const rawBest = bestExpression(expr);
+              const best = smoothBest(rawBest);
 
-            if (!keys.length) {
-              hud.textContent = 'face found — expressions missing (check ./models)';
-              requestAnimationFrame(tick);
-              return;
+              // Draw small label above box
+              const pct = (best.score * 100).toFixed(0);
+              drawLabelOverBox(box, `${best.name} ${pct}%`);
+
+              // Popup if changed / confident
+              maybeAnnounce(best);
+
+              hud.textContent = `expression: ${best.name} (${pct}%)`;
+            } else {
+              hud.textContent = "no face detected";
             }
 
-            const rawBest = bestExpression(expr);
-            const best = smoothBest(rawBest);
-
-            // Draw small label above box
-            const pct  = (best.score * 100).toFixed(0);
-            drawLabelOverBox(box, `${best.name} ${pct}%`);
-
-            // Popup if changed / confident
-            maybeAnnounce(best);
-
-            hud.textContent = `expression: ${best.name} (${pct}%)`;
-          } else {
-            hud.textContent = 'no face detected';
+            requestAnimationFrame(tick);
           }
 
-          requestAnimationFrame(tick);
+          tick();
+        } catch (err) {
+          console.error(err);
+          hud.textContent = "error: " + err.message;
+          startBtn.disabled = false;
         }
-
-        tick();
-      } catch (err) {
-        console.error(err);
-        hud.textContent = 'error: ' + err.message;
-        startBtn.disabled = false;
       }
-    }
 
-    // Mobile needs a user gesture
-    startBtn.addEventListener('click', startApp);
-    // Try auto-start on desktop
-    window.addEventListener('load', () => { startApp().catch(() => {}); });
-  </script>
-</body>
+      // Mobile needs a user gesture
+      startBtn.addEventListener("click", startApp);
+      // Try auto-start on desktop
+      window.addEventListener("load", () => {
+        startApp().catch(() => {});
+      });
+    </script>
+  </body>
 </html>
