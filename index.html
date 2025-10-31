@@ -423,7 +423,7 @@
             ctx.clearRect(0, 0, overlay.width, overlay.height);
 
             if (result) {
-              // when a face is first seen, prompt the user to make an expression
+              // Show popup whenever a face appears (after being absent)
               if (!faceSeen) {
                 showPopup("👀 I see you — show me a face!", 1, true);
                 faceSeen = true;
@@ -445,14 +445,14 @@
               const rawBest = bestExpression(expr);
               const best = smoothBest(rawBest);
 
-              // Draw small label above box
-              const pct = (best.score * 100).toFixed(0);
-              drawLabelOverBox(box, `${best.name} ${pct}%`);
+              // // Draw small label above box
+              // const pct = (best.score * 100).toFixed(0);
+              // drawLabelOverBox(box, `${best.name} ${pct}%`);
 
-              // Popup if changed / confident
-              maybeAnnounce(best);
+              // // Popup if changed / confident
+              // maybeAnnounce(best);
 
-              hud.textContent = `expression: ${best.name} (${pct}%)`;
+              // hud.textContent = `expression: ${best.name} (${pct}%)`;
             } else {
               // reset faceSeen so prompt will show again when face reappears
               faceSeen = false;
