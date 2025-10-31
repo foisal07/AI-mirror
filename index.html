@@ -17,14 +17,14 @@
         color: #fff;
         font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
       }
-      .wrap {
-        min-height: 100svh;
-        display: grid;
-        place-items: center;
-        gap: 14px;
-        padding: 0;
       }
-      .stage {
+
+      /* Hide HUD and Start button for a cleaner fullscreen camera view */
+      /* Keeps elements in DOM for JS but hides visually and from layout */
+      #hud,
+      #startBtn {
+        display: none !important;
+      }
         position: relative;
         width: 100vw;
         height: 100vh;
@@ -176,7 +176,7 @@
       const loader = document.getElementById("loader");
 
       // speech permission flag — enabled by explicit user gesture (Start button)
-      let allowSpeech = false;
+      let allowSpeech = true;
 
       // Fun expression messages
       const expressionMessages = {
