@@ -272,12 +272,12 @@
       }
 
       // Expression smoothing / change detection
-      const SMOOTH_N = 6; // moving average window (frames)
+      const SMOOTH_N = 4; // moving average window (frames)
       let history = []; // [{name, score}]
       let lastShown = { name: "", score: 0 };
-      const CHANGE_THRESH = 0.12; // minimum change in score to consider "new"
-      const SCORE_MIN_TO_ANNOUNCE = 0.55; // only announce if top score >= 0.55
-      const MIN_MS_BETWEEN_POPUPS = 900;
+      const CHANGE_THRESH = 0.1; // minimum change in score to consider "new"
+      const SCORE_MIN_TO_ANNOUNCE = 0.45; // only announce if top score >= 0.45
+      const MIN_MS_BETWEEN_POPUPS = 800;
       let lastPopupAt = 0;
       // track whether a face is currently visible (to show prompt once per appearance)
       let faceSeen = false;
@@ -445,21 +445,21 @@
               const rawBest = bestExpression(expr);
               const best = smoothBest(rawBest);
 
-              // // Draw small label above box
-              // const pct = (best.score * 100).toFixed(0);
-              // drawLabelOverBox(box, `${best.name} ${pct}%`);
+              // Draw small label above box
+              const pct = (best.score * 100).toFixed(0);
+              drawLabelOverBox(box, `${best.name} ${pct}%`);
 
-              // // Popup if changed / confident
-              // maybeAnnounce(best);
+              // Popup if changed / confident
+              maybeAnnounce(best);
 
-              // hud.textContent = `expression: ${best.name} (${pct}%)`;
+              hud.textContent = `expression: ${best.name} (${pct}%)`;
             } else {
               // reset faceSeen so prompt will show again when face reappears
               faceSeen = false;
               hud.textContent = "no face detected";
             }
 
-            requestAnimationFrame(tick);
+            // requestAnimationFrame(tick);
           }
 
           tick();
