@@ -230,6 +230,34 @@
         disgusted: ["Critic Supreme", "Taste Guardian", "Opinion Master"],
       };
 
+      // Short witty subtitles to show under the main popup message
+      const expressionSubtitles = {
+        happy: [
+          "Warning: excessive joy detected.",
+          "Smile quota exceeded — congratulations!",
+        ],
+        sad: [
+          "Expert-level brooding in progress.",
+          "Steam: handle with kindness.",
+        ],
+        angry: ["Calm breathing recommended.", "Hot vibes cooling down soon."],
+        surprised: ["Blink to confirm reality.", "Alert: curiosity peaked!"],
+        neutral: ["Zen mode activated.", "Stoic and stylish."],
+        fearful: ["Adrenaline: optional.", "Courage boots are on backorder."],
+        disgusted: ["Tastebuds offended.", "Opinionated and proud."],
+        default: [
+          "Mood detected — processing witty comment.",
+          "Nice face, nice vibes.",
+        ],
+      };
+
+      function getRandomSubtitle(expression) {
+        const arr =
+          expressionSubtitles[expression.toLowerCase()] ||
+          expressionSubtitles.default;
+        return arr[Math.floor(Math.random() * arr.length)];
+      }
+
       function getRandomMessage(expression) {
         const messages = expressionMessages[expression.toLowerCase()] || [
           "Mood Master",
@@ -245,10 +273,13 @@
           popup.innerHTML = text;
         } else {
           const funMessage = getRandomMessage(text);
-          popup.innerHTML = `${funMessage} <small>${Math.round(
-            conf * 100
-          )}%</small>`;
-          // speak the message when allowed by a prior user gesture
+          const subtitle = getRandomSubtitle(text);
+          // If the main message matches the special long heading, append playful emojis
+          const specialHeading =
+            "We noticed you didn’t smile. Recreational scrolling reduced.";
+          const emojiTail = funMessage === specialHeading ? " 😅📵" : "";
+          popup.innerHTML = `<div class=\"popup-main\">${funMessage}${emojiTail}</div><small>${subtitle}</small>`;
+          // speak the main message when allowed by a prior user gesture
           speak(funMessage);
         }
         popup.classList.add("show");
