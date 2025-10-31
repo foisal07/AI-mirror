@@ -1,287 +1,232 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>AI Mirror — face-api.js (Expressions)</title>
-    <style>
-      :root {
-        color-scheme: dark;
-      }
-      * {
-        box-sizing: border-box;
-      }
-      body {
-        margin: 0;
-        background: #0b0b0c;
-        color: #fff;
-        font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-      }
-      .wrap {
-        min-height: 100svh;
-        display: grid;
-        place-items: center;
-        gap: 12px;
-        padding: 24px;
-      }
-      .stage {
-        position: relative;
-        width: min(760px, 94vw);
-      }
-      video,
-      canvas {
-        width: 100%;
-        height: auto;
-        display: block;
-        border-radius: 16px;
-      }
-      #hud {
-        position: absolute;
-        left: 12px;
-        top: 12px;
-        z-index: 5;
-        padding: 8px 12px;
-        font-size: 14px;
-        border-radius: 12px;
-        background: rgba(20, 20, 24, 0.65);
-        backdrop-filter: blur(6px);
-      }
-      #caption {
-        position: absolute;
-        left: 50%;
-        transform: translateX(-50%);
-        bottom: 14px;
-        z-index: 5;
-        padding: 6px 12px;
-        font-size: 13px;
-        border-radius: 999px;
-        letter-spacing: 0.2px;
-        background: rgba(15, 15, 20, 0.7);
-        display: none;
-      }
-      #startBtn {
-        appearance: none;
-        border: 0;
-        cursor: pointer;
-        border-radius: 12px;
-        padding: 10px 14px;
-        background: #1e1e24;
-        color: #fff;
-        font-size: 14px;
-        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
-      }
-      #legend {
-        font-size: 13px;
-        opacity: 0.85;
-      }
-      a {
-        color: #9ddcff;
-        text-decoration: none;
-      }
-    </style>
-  </head>
-  <body>
-    <div class="wrap">
-      <div class="stage">
-        <div id="hud">loading…</div>
-        <video id="video" autoplay muted playsinline></video>
-        <canvas id="overlay"></canvas>
-        <div id="caption">nonchalant observer</div>
-      </div>
-      <button id="startBtn" aria-label="Start">▶ Start</button>
-      <div id="legend">
-        Expressions: neutral, happy, sad, angry, fearful, disgusted, surprised
-      </div>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>AI Mirror — Expression Popup</title>
+  <style>
+    :root { color-scheme: dark; }
+    * { box-sizing: border-box; }
+    body { margin:0; background:#0b0b0c; color:#fff; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
+    .wrap { min-height:100svh; display:grid; place-items:center; gap:14px; padding:24px; }
+    .stage { position:relative; width:min(760px, 94vw); }
+    video, canvas { width:100%; height:auto; display:block; border-radius:16px; }
+
+    #hud {
+      position:absolute; left:12px; top:12px; z-index:5;
+      padding:8px 12px; font-size:14px; border-radius:12px;
+      background:rgba(20,20,24,.65); backdrop-filter: blur(6px);
+    }
+
+    #startBtn {
+      appearance:none; border:0; cursor:pointer; border-radius:12px;
+      padding:10px 14px; background:#1e1e24; color:#fff; font-size:14px;
+      box-shadow:0 2px 10px rgba(0,0,0,.25);
+    }
+
+    /* Popup / toast */
+    #popup {
+      position: fixed; left: 50%; top: 12%;
+      transform: translateX(-50%) scale(0.98);
+      padding: 12px 16px; border-radius: 14px;
+      background: rgba(10,10,14,0.85);
+      box-shadow: 0 10px 30px rgba(0,0,0,.45), inset 0 0 0 1px rgba(255,255,255,.08);
+      font-size: 16px; letter-spacing:.2px; z-index: 9999;
+      opacity: 0; pointer-events: none;
+      transition: opacity .18s ease, transform .18s ease;
+    }
+    #popup.show {
+      opacity: 1; transform: translateX(-50%) scale(1);
+    }
+    #popup small { opacity:.75; font-size:12px; margin-left:.6ch; }
+
+    /* Optional: expression label above box */
+    .label-bg { fill: rgba(0,0,0,0.6); }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="stage">
+      <div id="hud">loading…</div>
+      <video id="video" autoplay muted playsinline></video>
+      <canvas id="overlay"></canvas>
     </div>
+    <button id="startBtn" aria-label="Start">▶ Start</button>
+  </div>
 
-    <!-- NOTE: Only face-api.js; DO NOT include a separate TFJS v4 script -->
-    <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.20.0/dist/tf.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.min.js"></script>
+  <!-- Popup element -->
+  <div id="popup" role="status" aria-live="polite"></div>
 
-    <script>
-      const video = document.getElementById("video");
-      const overlay = document.getElementById("overlay");
-      const ctx = overlay.getContext("2d");
-      const hud = document.getElementById("hud");
-      const caption = document.getElementById("caption");
-      const startBtn = document.getElementById("startBtn");
+  <!-- Only face-api.js (no separate TFJS tag) -->
+  <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
 
-      // Smoothing for neutral + hysteresis to avoid flicker
-      const neutralBuf = [];
-      const BUF_SIZE = 8;
-      const NEUTRAL_ON = 0.55;
-      const NEUTRAL_OFF = 0.45;
-      let captionOn = false;
+  <script>
+    const video    = document.getElementById('video');
+    const overlay  = document.getElementById('overlay');
+    const ctx      = overlay.getContext('2d');
+    const hud      = document.getElementById('hud');
+    const startBtn = document.getElementById('startBtn');
+    const popup    = document.getElementById('popup');
 
-      function pushNeutral(p) {
-        neutralBuf.push(p);
-        if (neutralBuf.length > BUF_SIZE) neutralBuf.shift();
-        return neutralBuf.reduce((a, b) => a + b, 0) / neutralBuf.length;
+    // Popup helpers
+    let popupTimer = null;
+    function showPopup(text, conf) {
+      popup.textContent = '';
+      popup.innerHTML = `${text} <small>${Math.round(conf*100)}%</small>`;
+      popup.classList.add('show');
+      clearTimeout(popupTimer);
+      popupTimer = setTimeout(() => popup.classList.remove('show'), 1600);
+    }
+
+    // Expression smoothing / change detection
+    const SMOOTH_N = 6; // moving average window (frames)
+    let history = [];   // [{name, score}]
+    let lastShown = { name: '', score: 0 };
+    const CHANGE_THRESH = 0.12; // minimum change in score to consider "new"
+    const SCORE_MIN_TO_ANNOUNCE = 0.55; // only announce if top score >= 0.55
+    const MIN_MS_BETWEEN_POPUPS = 900;
+    let lastPopupAt = 0;
+
+    function bestExpression(expressions) {
+      let best = { name: 'unknown', score: 0 };
+      for (const [name, score] of Object.entries(expressions)) if (score > best.score) best = { name, score };
+      return best;
+    }
+
+    function smoothBest(newBest) {
+      history.push(newBest);
+      if (history.length > SMOOTH_N) history.shift();
+      // average scores per name seen in history
+      const agg = {};
+      history.forEach(({name, score}) => { agg[name] = (agg[name] || 0) + score; });
+      const smoothed = Object.entries(agg).map(([name, sum]) => ({ name, score: sum / history.length }));
+      smoothed.sort((a,b) => b.score - a.score);
+      return smoothed[0] || newBest;
+    }
+
+    function maybeAnnounce(best) {
+      const now = Date.now();
+      const changedName = best.name !== lastShown.name;
+      const changedScore = Math.abs(best.score - (lastShown.score || 0)) >= CHANGE_THRESH;
+      const confident = best.score >= SCORE_MIN_TO_ANNOUNCE;
+      const cooledDown = (now - lastPopupAt) >= MIN_MS_BETWEEN_POPUPS;
+
+      if (confident && cooledDown && (changedName || changedScore)) {
+        showPopup(best.name, best.score);
+        lastShown = best;
+        lastPopupAt = now;
       }
+    }
 
-      function bestExpression(expressions) {
-        let best = { name: "unknown", score: 0 };
-        for (const [name, score] of Object.entries(expressions))
-          if (score > best.score) best = { name, score };
-        return best;
-      }
+    function drawBox(box) {
+      ctx.strokeStyle = 'rgba(255,255,255,.9)';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([]);
+      ctx.strokeRect(box.x, box.y, box.width, box.height);
+    }
 
-      function drawBox(box) {
-        ctx.strokeStyle = "rgba(255,255,255,.9)";
-        ctx.lineWidth = 2;
-        ctx.setLineDash([]);
-        ctx.strokeRect(box.x, box.y, box.width, box.height);
-      }
+    function drawLabelOverBox(box, text) {
+      const pad = 6;
+      ctx.font = '14px system-ui, sans-serif';
+      const tw = ctx.measureText(text).width, th = 18;
+      const tx = box.x + Math.max(0, (box.width - tw) / 2);
+      const ty = Math.max(0, box.y - th - 8);
+      ctx.fillStyle = 'rgba(0,0,0,0.6)';
+      ctx.fillRect(tx - pad, ty - th + 4, tw + pad * 2, th);
+      ctx.fillStyle = 'white';
+      ctx.fillText(text, tx, ty);
+    }
 
-      function drawLabelOverBox(box, text) {
-        const pad = 6;
-        ctx.font = "14px system-ui, sans-serif";
-        const tw = ctx.measureText(text).width,
-          th = 18;
-        const tx = box.x + Math.max(0, (box.width - tw) / 2);
-        const ty = Math.max(0, box.y - th - 8);
-        ctx.fillStyle = "rgba(0,0,0,0.6)";
-        ctx.fillRect(tx - pad, ty - th + 4, tw + pad * 2, th);
-        ctx.fillStyle = "white";
-        ctx.fillText(text, tx, ty);
-      }
-
-      function drawNeutralOverlay(box) {
-        ctx.save();
-        ctx.setLineDash([8, 6]);
-        ctx.strokeStyle = "rgba(255,255,255,.9)";
-        ctx.lineWidth = 2;
-        ctx.strokeRect(box.x, box.y, box.width, box.height);
-
-        const r = Math.max(box.width, box.height);
-        const grad = ctx.createRadialGradient(
-          box.x + box.width / 2,
-          box.y + box.height / 2,
-          r * 0.1,
-          box.x + box.width / 2,
-          box.y + box.height / 2,
-          r * 0.7
-        );
-        grad.addColorStop(0, "rgba(255,255,255,0.03)");
-        grad.addColorStop(1, "rgba(0,0,0,0.45)");
-        ctx.fillStyle = grad;
-        ctx.fillRect(box.x, box.y, box.width, box.height);
-        ctx.restore();
-      }
-
-      function ensureCanvasSizeMatchesVideo() {
-        if (
-          overlay.width !== video.videoWidth ||
-          overlay.height !== video.videoHeight
-        ) {
-          overlay.width = video.videoWidth;
-          overlay.height = video.videoHeight;
-        }
-      }
-
-      async function loadModels() {
-        const MODEL_URL = "./models"; // relative for GitHub Pages subpath
-        hud.textContent = "loading models…";
-        await Promise.all([
-          faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
-          faceapi.nets.faceExpressionNet.loadFromUri(MODEL_URL),
-        ]);
-        hud.textContent = "models ready";
-      }
-
-      async function setupCamera() {
-        hud.textContent = "requesting camera…";
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            facingMode: "user",
-            width: { ideal: 1280 },
-            height: { ideal: 720 },
-          },
-          audio: false,
-        });
-        video.srcObject = stream;
-        await new Promise((r) => (video.onloadedmetadata = r));
-        overlay.width = video.videoWidth;
+    function ensureCanvasSizeMatchesVideo() {
+      if (overlay.width !== video.videoWidth || overlay.height !== video.videoHeight) {
+        overlay.width  = video.videoWidth;
         overlay.height = video.videoHeight;
-        hud.textContent = "camera ready";
       }
+    }
 
-      async function startApp() {
-        try {
-          startBtn.disabled = true;
-          await loadModels();
-          await setupCamera();
+    async function loadModels() {
+      const MODEL_URL = './models'; // relative path for GitHub Pages subpath
+      hud.textContent = 'loading models…';
+      await Promise.all([
+        faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+        faceapi.nets.faceExpressionNet.loadFromUri(MODEL_URL),
+      ]);
+      hud.textContent = 'models ready';
+    }
 
-          const opts = new faceapi.TinyFaceDetectorOptions({
-            inputSize: 320,
-            scoreThreshold: 0.5,
-          });
-          hud.textContent = "detecting…";
+    async function setupCamera() {
+      hud.textContent = 'requesting camera…';
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } },
+        audio: false
+      });
+      video.srcObject = stream;
+      await new Promise(r => video.onloadedmetadata = r);
+      overlay.width  = video.videoWidth;
+      overlay.height = video.videoHeight;
+      hud.textContent = 'camera ready';
+    }
 
-          async function tick() {
-            ensureCanvasSizeMatchesVideo();
-            const result = await faceapi
-              .detectSingleFace(video, opts)
-              .withFaceExpressions();
+    async function startApp() {
+      try {
+        startBtn.disabled = true;
+        await loadModels();
+        await setupCamera();
 
-            ctx.clearRect(0, 0, overlay.width, overlay.height);
+        const opts = new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.5 });
+        hud.textContent = 'detecting…';
 
-            if (result) {
-              const { box } = result.detection;
-              drawBox(box);
+        async function tick() {
+          ensureCanvasSizeMatchesVideo();
+          const result = await faceapi
+            .detectSingleFace(video, opts)
+            .withFaceExpressions();
 
-              const expr = result.expressions || {};
-              const keys = Object.keys(expr);
+          ctx.clearRect(0, 0, overlay.width, overlay.height);
 
-              if (!keys.length) {
-                hud.textContent =
-                  "face found — expressions missing (check ./models files)";
-                caption.style.display = "none";
-                return requestAnimationFrame(tick);
-              }
+          if (result) {
+            const { box } = result.detection;
+            drawBox(box);
 
-              const best = bestExpression(expr);
-              const pct = (best.score * 100).toFixed(0);
-              drawLabelOverBox(box, `${best.name} ${pct}%`);
+            const expr = result.expressions || {};
+            const keys = Object.keys(expr);
 
-              const avgNeutral = pushNeutral(expr.neutral ?? 0);
-              if (!captionOn && avgNeutral >= NEUTRAL_ON) captionOn = true;
-              if (captionOn && avgNeutral < NEUTRAL_OFF) captionOn = false;
-
-              if (captionOn) {
-                drawNeutralOverlay(box);
-                caption.style.display = "";
-              } else {
-                caption.style.display = "none";
-              }
-
-              hud.textContent = `expression: ${
-                best.name
-              } (neutral avg: ${Math.round(avgNeutral * 100)}%)`;
-            } else {
-              caption.style.display = "none";
-              hud.textContent = "no face detected";
+            if (!keys.length) {
+              hud.textContent = 'face found — expressions missing (check ./models)';
+              requestAnimationFrame(tick);
+              return;
             }
 
-            requestAnimationFrame(tick);
+            const rawBest = bestExpression(expr);
+            const best = smoothBest(rawBest);
+
+            // Draw small label above box
+            const pct  = (best.score * 100).toFixed(0);
+            drawLabelOverBox(box, `${best.name} ${pct}%`);
+
+            // Popup if changed / confident
+            maybeAnnounce(best);
+
+            hud.textContent = `expression: ${best.name} (${pct}%)`;
+          } else {
+            hud.textContent = 'no face detected';
           }
 
-          tick();
-        } catch (err) {
-          console.error(err);
-          hud.textContent = "error: " + err.message;
-          startBtn.disabled = false;
+          requestAnimationFrame(tick);
         }
+
+        tick();
+      } catch (err) {
+        console.error(err);
+        hud.textContent = 'error: ' + err.message;
+        startBtn.disabled = false;
       }
+    }
 
-      // Mobile browsers often require a user gesture to start getUserMedia
-      startBtn.addEventListener("click", startApp);
-
-      // Try auto-start on desktop; if it fails (mobile), the Start button remains
-      window.addEventListener("load", () => {
-        startApp().catch(() => {});
-      });
-    </script>
-  </body>
+    // Mobile needs a user gesture
+    startBtn.addEventListener('click', startApp);
+    // Try auto-start on desktop
+    window.addEventListener('load', () => { startApp().catch(() => {}); });
+  </script>
+</body>
 </html>
