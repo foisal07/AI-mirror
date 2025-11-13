@@ -339,7 +339,9 @@
       <div class="ticker">
         <div class="ticker-label">AI Mirror</div>
         <div class="ticker-content">
-          <div id="tickerHeading" class="ticker-heading">Awaiting face...</div>
+          <div id="tickerHeading" class="ticker-heading">
+            I see you, show your best expression
+          </div>
           <div id="tickerSubtitle" class="ticker-subtitle">
             Bring your face into view
           </div>
@@ -541,6 +543,13 @@
         ],
       };
 
+      function getRandomMessage(expression) {
+        const list =
+          expressionMessages[expression.toLowerCase()] ||
+          expressionMessages.default;
+        return list[Math.floor(Math.random() * list.length)];
+      }
+
       function getRandomSubtitle(expression) {
         const arr =
           expressionSubtitles[expression.toLowerCase()] ||
@@ -565,20 +574,16 @@
       }
 
       function showPopup(text, conf, isWelcome = false) {
-        if (isWelcome) {
-          setTickerText({
-            heading: text || "Scanning face",
-            subtitle: "Hold steady while we analyze",
-          });
-        } else {
+        if (!isWelcome) {
           const caption = formatExpressionLabel(text);
+          const funMessage = getRandomMessage(text);
           const subtitle = getRandomSubtitle(text);
           setTickerText({
-            heading: caption,
+            heading: funMessage,
             subtitle,
           });
           // speak both the detected expression and subtitle when allowed
-          speak(`${caption}. ${subtitle}`);
+          speak(`${caption}. ${funMessage}. ${subtitle}`);
         }
         popup.classList.add("show");
       }
