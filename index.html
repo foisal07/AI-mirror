@@ -143,11 +143,7 @@
             rgba(0, 255, 204, 0.08) 1px,
             transparent 1px
           ),
-          linear-gradient(
-            90deg,
-            rgba(0, 255, 204, 0.08) 1px,
-            transparent 1px
-          );
+          linear-gradient(90deg, rgba(0, 255, 204, 0.08) 1px, transparent 1px);
         background-size: 40px 40px;
       }
       .scanner-line {
@@ -339,19 +335,17 @@
     </div>
 
     <!-- Popup element -->
-        <div id="popup" role="status" aria-live="polite">
-          <div class="ticker">
-            <div class="ticker-label">AI Mirror</div>
-            <div class="ticker-content">
-              <div id="tickerHeading" class="ticker-heading">
-                Awaiting face...
-              </div>
-              <div id="tickerSubtitle" class="ticker-subtitle">
-                Bring your face into view
-              </div>
-            </div>
+    <div id="popup" role="status" aria-live="polite">
+      <div class="ticker">
+        <div class="ticker-label">AI Mirror</div>
+        <div class="ticker-content">
+          <div id="tickerHeading" class="ticker-heading">Awaiting face...</div>
+          <div id="tickerSubtitle" class="ticker-subtitle">
+            Bring your face into view
           </div>
         </div>
+      </div>
+    </div>
 
     <script src="https://cdn.jsdelivr.net/npm/howler@2.2.4/dist/howler.min.js"></script>
     <!-- Only face-api.js (no separate TFJS tag) -->
@@ -372,36 +366,175 @@
       // speech permission flag — enabled by explicit user gesture (Start button)
       let allowSpeech = true;
 
-      // Fun expression messages
       const expressionMessages = {
-        happy: ["Radiant Comrade!", "Joy Spreader!", "Sunshine Champion!"],
-        sad: ["Captain Serious", "Melancholy Poet", "Blue Mood Master"],
-        angry: ["Thunder Face!", "Mighty Grumpy!", "Epic Rage Master!"],
+        happy: [
+          // Original
+          "Radiant Comrade!",
+          "Joy Spreader!",
+          "Sunshine Champion!",
+          // Screenshot
+          "Radiant Comrade",
+          "Joy-Leaking Citizen",
+          // New
+          "Optimism Reactor",
+          "Hyper-Positive Unit",
+          "Certified Happiness Distributor",
+        ],
+
+        sad: [
+          // Original
+          "Captain Serious",
+          "Melancholy Poet",
+          "Blue Mood Master",
+          // Screenshot
+          "Soft-Hearted Subject",
+          // New
+          "Tearful Thinker",
+          "Low-Voltage Soul",
+          "Sentiment Overloader",
+        ],
+
+        angry: [
+          // Original
+          "Thunder Face!",
+          "Mighty Grumpy!",
+          "Epic Rage Master!",
+          // Screenshot
+          "Captain Serious",
+          "Potential Dissident",
+          // New
+          "Volcano Mode Activated",
+          "Scowl Specialist",
+          "Certified Rage Unit",
+        ],
+
         surprised: [
+          // Original
           "Shock Commander!",
           "Wide-Eyed Wonder!",
           "Surprise Expert!",
+          // Screenshot
+          "Overly Curious Unit",
+          // New
+          "Astonishment Module",
+          "Expression Error: Too Much Input",
+          "Unexpected Item in the Emotional Area",
         ],
-        neutral: ["Zen Master", "Poker Face Pro", "Calm Keeper"],
-        fearful: ["Brave Explorer", "Adventure Seeker", "Thrill Master"],
-        disgusted: ["Critic Supreme", "Taste Guardian", "Opinion Master"],
+
+        neutral: [
+          // Original
+          "Zen Master",
+          "Poker Face Pro",
+          "Calm Keeper",
+          // Screenshot
+          "Nonchalant Entity",
+          "Bureaucratically Present",
+          // New
+          "Emotionless Navigator",
+          "Passive Observation Mode",
+          "The Unbothered One",
+        ],
+
+        fearful: [
+          // Original (no screenshot examples)
+          "Brave Explorer",
+          "Adventure Seeker",
+          "Thrill Master",
+          // New
+          "Anxiety Engine Running",
+          "Startled Lifeform Detected",
+          "Nervous System Overclocked",
+        ],
+
+        disgusted: [
+          // Original
+          "Critic Supreme",
+          "Taste Guardian",
+          "Opinion Master",
+          // New
+          "Visceral Rejection Specialist",
+          "Face of Absolute Disapproval",
+          "Disgust Sensor at Maximum",
+        ],
       };
 
-      // Short witty subtitles to show under the main popup message
       const expressionSubtitles = {
         happy: [
+          // Original
           "Warning: excessive joy detected.",
           "Smile quota exceeded — congratulations!",
+          // Screenshot
+          "Smile compliance at 104%. Dessert approved.",
+          "Your positivity may influence others. Keep glowing.",
+          // New
+          "Public morale boosted by your happiness output.",
+          "Caution: radiating optimism.",
         ],
+
         sad: [
+          // Original
           "Expert-level brooding in progress.",
           "Steam: handle with kindness.",
+          // Screenshot
+          "Emotional density high. Cake withheld for observation.",
+          // New
+          "Mood levels falling — send digital hugs.",
+          "Soft mode activated. Proceed gently.",
         ],
-        angry: ["Calm breathing recommended.", "Hot vibes cooling down soon."],
-        surprised: ["Blink to confirm reality.", "Alert: curiosity peaked!"],
-        neutral: ["Zen mode activated.", "Stoic and stylish."],
-        fearful: ["Adrenaline: optional.", "Courage boots are on backorder."],
-        disgusted: ["Tastebuds offended.", "Opinionated and proud."],
+
+        angry: [
+          // Original
+          "Calm breathing recommended.",
+          "Hot vibes cooling down soon.",
+          // Screenshot
+          "Your expression risks lowering group morale. Cat video prescribed.",
+          "Micro-aggression in eyebrows detected. Report for meme training.",
+          // New
+          "Rage levels rising — stand back.",
+          "Alert: imminent keyboard smashing predicted.",
+        ],
+
+        surprised: [
+          // Original
+          "Blink to confirm reality.",
+          "Alert: curiosity peaked!",
+          // Screenshot
+          "Curiosity level: above average. Monitoring continues.",
+          // New
+          "Unexpected emotional spike detected.",
+          "Shockwave registered in facial sensors.",
+        ],
+
+        neutral: [
+          // Original
+          "Zen mode activated.",
+          "Stoic and stylish.",
+          // Screenshot
+          "We noticed you didn’t smile. Recreational scrolling reduced.",
+          "You exist in the frame. Please add emotion.",
+          // New
+          "Operative functioning at baseline.",
+          "Flatline emotion. Smooth and steady.",
+        ],
+
+        fearful: [
+          // Original
+          "Adrenaline: optional.",
+          "Courage boots are on backorder.",
+          // New
+          "Fear detected — would you like a flashlight?",
+          "Warning: small noises may cause panic.",
+        ],
+
+        disgusted: [
+          // Original
+          "Tastebuds offended.",
+          "Opinionated and proud.",
+          // New
+          "That face says ‘absolutely not.’",
+          "Revulsion recorded. Sanitizing environment.",
+        ],
+
         default: [
           "Mood detected — processing witty comment.",
           "Nice face, nice vibes.",
