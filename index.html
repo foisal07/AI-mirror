@@ -342,6 +342,8 @@
     <!-- Popup element -->
     <div id="popup" role="status" aria-live="polite"></div>
 
+    <!-- Audio + ML libraries -->
+    <script src="https://cdn.jsdelivr.net/npm/howler@2.2.4/dist/howler.min.js"></script>
     <!-- Only face-api.js (no separate TFJS tag) -->
     <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
 
@@ -474,12 +476,42 @@
       const FACE_ABSENT_THRESHOLD = 30000; // 30 seconds in milliseconds
       const SCAN_MIN_DURATION = 3000; // scanning overlay minimum duration
       const SCAN_MAX_DURATION = 5000; // scanning overlay maximum duration
+      const SCAN_AUDIO_VOLUME = 0.35; // audio level for scan sound
+
+      let scanSound = null;
+      let scanSoundPlaying = false;
 
       function scheduleScanHold(now) {
         const duration =
           SCAN_MIN_DURATION +
           Math.random() * (SCAN_MAX_DURATION - SCAN_MIN_DURATION);
         startExpressionsTime = now + duration;
+      }
+
+      function ensureScanSound() {
+        if (scanSound) return scanSound;
+        if (typeof Howl === "undefined") return null;
+        scanSound = new Howl({
+          src: ["scan.wav"],
+          loop: true,
+          volume: SCAN_AUDIO_VOLUME,
+          preload: true,
+        });
+        return scanSound;
+      }
+
+      function startScanSound() {
+        const sound = ensureScanSound();
+        if (!sound || scanSoundPlaying) return;
+        sound.stop();
+        sound.play();
+        scanSoundPlaying = true;
+      }
+
+      function stopScanSound() {
+        if (!scanSound || !scanSoundPlaying) return;
+        scanSound.stop();
+        scanSoundPlaying = false;
       }
 
       function bestExpression(expressions) {
@@ -613,14 +645,20 @@
 
       function showScanner() {
         if (!scanner) return;
-        scanner.classList.add("show");
-        scanner.setAttribute("aria-hidden", "false");
+        if (!scanner.classList.contains("show")) {
+          scanner.classList.add("show");
+          scanner.setAttribute("aria-hidden", "false");
+        }
+        startScanSound();
       }
 
       function hideScanner() {
         if (!scanner) return;
-        scanner.classList.remove("show");
-        scanner.setAttribute("aria-hidden", "true");
+        if (scanner.classList.contains("show")) {
+          scanner.classList.remove("show");
+          scanner.setAttribute("aria-hidden", "true");
+        }
+        stopScanSound();
       }
 
       async function startApp() {
