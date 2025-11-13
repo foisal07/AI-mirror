@@ -339,7 +339,9 @@
       <div class="ticker">
         <div class="ticker-label">AI Mirror</div>
         <div class="ticker-content">
-          <div id="tickerHeading" class="ticker-heading">Awaiting face...</div>
+          <div id="tickerHeading" class="ticker-heading">
+            I see you, show your best expression
+          </div>
           <div id="tickerSubtitle" class="ticker-subtitle">
             Bring your face into view
           </div>
@@ -565,12 +567,7 @@
       }
 
       function showPopup(text, conf, isWelcome = false) {
-        if (isWelcome) {
-          setTickerText({
-            heading: text || "Scanning face",
-            subtitle: "Hold steady while we analyze",
-          });
-        } else {
+        if (!isWelcome) {
           const caption = formatExpressionLabel(text);
           const subtitle = getRandomSubtitle(text);
           setTickerText({
