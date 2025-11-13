@@ -577,8 +577,8 @@
             heading: caption,
             subtitle,
           });
-          // speak the detected expression when allowed by a prior user gesture
-          speak(caption);
+          // speak both the detected expression and subtitle when allowed
+          speak(`${caption}. ${subtitle}`);
         }
         popup.classList.add("show");
       }
