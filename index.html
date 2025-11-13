@@ -8,6 +8,7 @@
     <style>
       :root {
         color-scheme: dark;
+        --camera-width: min(100%, calc(100svh * 0.5625));
       }
       * {
         box-sizing: border-box;
@@ -32,7 +33,7 @@
         width: 100%;
         height: 100svh;
         /* Force portrait aspect ratio even in landscape */
-        max-width: min(100%, calc(100svh * 0.5625)); /* 9:16 ratio */
+        max-width: var(--camera-width); /* 9:16 ratio */
         margin: 0 auto;
         background: #000;
       }
@@ -58,7 +59,7 @@
       @media (orientation: landscape) {
         .stage {
           height: 100svh;
-          max-width: min(100%, calc(100svh * 0.5625));
+          max-width: var(--camera-width);
         }
         video {
           /* Ensure video feed is rotated to portrait in landscape mode */
@@ -249,62 +250,60 @@
         display: none !important;
       }
 
-      /* Popup / toast */
+      /* Bottom ticker */
       #popup {
         position: fixed;
-        left: 50%;
-        top: 12%;
-        transform: translateX(-50%) scale(0.98);
-        padding: 16px 24px;
-        border-radius: 14px;
-        background: rgba(10, 10, 14, 0.9);
-        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45),
-          inset 0 0 0 1px rgba(255, 255, 255, 0.12);
-        font-size: 20px;
-        font-weight: 600;
-        letter-spacing: 0.2px;
-        z-index: 9999;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        width: 100%;
+        transform: translateY(100%);
+        transition: transform 0.35s ease, opacity 0.35s ease;
         opacity: 0;
         pointer-events: none;
-        transition: opacity 0.3s ease, transform 0.3s ease;
-        text-align: center;
+        z-index: 10;
       }
       #popup.show {
+        transform: translateY(0);
         opacity: 1;
-        transform: translateX(-50%) scale(1);
-        animation: pop 0.36s cubic-bezier(0.2, 0.9, 0.3, 1);
       }
-      @keyframes pop {
-        0% {
-          transform: translateX(-50%) scale(0.92);
-          opacity: 0;
-        }
-        60% {
-          transform: translateX(-50%) scale(1.04);
-          opacity: 1;
-        }
-        100% {
-          transform: translateX(-50%) scale(1);
-          opacity: 1;
-        }
-      }
-      #popup small {
-        opacity: 0.75;
-        font-size: 14px;
-        margin-left: 0.8ch;
-        font-weight: normal;
-      }
-      #popup .popup-expression {
-        display: block;
-        font-size: 13px;
-        letter-spacing: 0.4ch;
+      .ticker {
+        display: flex;
+        width: 100%;
+        max-width: var(--camera-width);
+        margin: 0 auto;
+        min-height: 64px;
+        font-family: "Oswald", "Impact", "Arial Narrow", sans-serif;
         text-transform: uppercase;
-        opacity: 0.6;
-        margin-bottom: 8px;
+        color: #fff;
+        box-shadow: 0 -8px 28px rgba(0, 0, 0, 0.5);
       }
-      #popup .popup-main {
-        font-size: 20px;
-        letter-spacing: 0.2px;
+      .ticker-label {
+        background: #c10c16;
+        padding: 10px 18px;
+        letter-spacing: 0.35ch;
+        font-size: clamp(12px, 2.6vw, 15px);
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+      }
+      .ticker-content {
+        flex: 1;
+        background: linear-gradient(90deg, #d41f1f, #a30d12);
+        padding: 12px 18px;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+      .ticker-heading {
+        font-size: clamp(16px, 4vw, 26px);
+        font-weight: 800;
+        letter-spacing: 0.2em;
+      }
+      .ticker-subtitle {
+        font-size: clamp(12px, 3vw, 16px);
+        letter-spacing: 0.1em;
+        opacity: 0.9;
       }
 
       /* Optional: expression label above box */
@@ -340,7 +339,19 @@
     </div>
 
     <!-- Popup element -->
-    <div id="popup" role="status" aria-live="polite"></div>
+        <div id="popup" role="status" aria-live="polite">
+          <div class="ticker">
+            <div class="ticker-label">TOMATO NEWS</div>
+            <div class="ticker-content">
+              <div id="tickerHeading" class="ticker-heading">
+                Awaiting face...
+              </div>
+              <div id="tickerSubtitle" class="ticker-subtitle">
+                Bring your face into view
+              </div>
+            </div>
+          </div>
+        </div>
 
     <!-- Only face-api.js (no separate TFJS tag) -->
     <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
@@ -352,6 +363,8 @@
       const hud = document.getElementById("hud");
       const startBtn = document.getElementById("startBtn");
       const popup = document.getElementById("popup");
+      const tickerHeading = document.getElementById("tickerHeading");
+      const tickerSubtitle = document.getElementById("tickerSubtitle");
       const loader = document.getElementById("loader");
       const scanner = document.getElementById("scanner");
 
@@ -401,13 +414,6 @@
         return arr[Math.floor(Math.random() * arr.length)];
       }
 
-      function getRandomMessage(expression) {
-        const messages = expressionMessages[expression.toLowerCase()] || [
-          "Mood Master",
-        ];
-        return messages[Math.floor(Math.random() * messages.length)];
-      }
-
       function formatExpressionLabel(expression) {
         if (!expression) return "Expression detected";
         return expression
@@ -419,30 +425,28 @@
           .join(" ");
       }
 
-      // Popup helpers
-      let popupTimer = null;
+      function setTickerText({ heading = "", subtitle = "" }) {
+        if (tickerHeading) tickerHeading.textContent = heading;
+        if (tickerSubtitle) tickerSubtitle.textContent = subtitle;
+      }
+
       function showPopup(text, conf, isWelcome = false) {
-        popup.textContent = "";
         if (isWelcome) {
-          popup.innerHTML = text;
+          setTickerText({
+            heading: text || "Scanning face",
+            subtitle: "Hold steady while we analyze",
+          });
         } else {
           const caption = formatExpressionLabel(text);
-          const funMessage = getRandomMessage(text);
           const subtitle = getRandomSubtitle(text);
-          // If the main message matches the special long heading, append playful emojis
-          const specialHeading =
-            "We noticed you didn’t smile. Recreational scrolling reduced.";
-          const emojiTail = funMessage === specialHeading ? " 😅📵" : "";
-          popup.innerHTML = `<div class=\"popup-expression\">${caption}</div><div class=\"popup-main\">${funMessage}${emojiTail}</div><small>${subtitle}</small>`;
+          setTickerText({
+            heading: caption,
+            subtitle,
+          });
           // speak the detected expression when allowed by a prior user gesture
           speak(caption);
         }
         popup.classList.add("show");
-        clearTimeout(popupTimer);
-        popupTimer = setTimeout(
-          () => popup.classList.remove("show"),
-          isWelcome ? 4000 : 2500
-        );
       }
 
       function speak(text) {
@@ -463,15 +467,14 @@
       let lastShown = { name: "", score: 0 };
       const CHANGE_THRESH = 0.1; // minimum change in score to consider "new"
       const SCORE_MIN_TO_ANNOUNCE = 0.45; // only announce if top score >= 0.45
+      const EXPRESSION_READY_SCORE = 0.35; // minimum confidence to hide scanner
       const MIN_MS_BETWEEN_POPUPS = 3000; // 3 seconds between expressions
       let lastPopupAt = 0;
       // track whether a face is currently visible (to show prompt once per appearance)
       let faceSeen = false;
+      let expressionsUnlocked = false;
       // track when expressions should start being announced (after scanning finishes)
       let startExpressionsTime = 0;
-      // track when face disappeared
-      let faceDisappearedTime = 0;
-      const FACE_ABSENT_THRESHOLD = 30000; // 30 seconds in milliseconds
       const SCAN_MIN_DURATION = 3000; // scanning overlay minimum duration
       const SCAN_MAX_DURATION = 5000; // scanning overlay maximum duration
 
@@ -505,17 +508,9 @@
         return smoothed[0] || newBest;
       }
 
-      function maybeAnnounce(best) {
+      function maybeAnnounce(best, canAnnounce) {
+        if (!canAnnounce) return;
         const now = Date.now();
-        // Don't show expressions until after the delay
-        if (now < startExpressionsTime) return;
-
-        // Clear the welcome message when we start showing expressions
-        if (lastShown.name === "") {
-          popup.classList.remove("show");
-          clearTimeout(popupTimer);
-        }
-
         const changedName = best.name !== lastShown.name;
         const changedScore =
           Math.abs(best.score - (lastShown.score || 0)) >= CHANGE_THRESH;
@@ -648,15 +643,10 @@
               const firstFrameWithFace = !faceSeen;
               if (firstFrameWithFace) {
                 faceSeen = true;
+                expressionsUnlocked = false;
                 scheduleScanHold(now);
                 showScanner();
-                // Show popup only if face has been gone for 30 seconds
-                if (
-                  now - faceDisappearedTime >= FACE_ABSENT_THRESHOLD ||
-                  faceDisappearedTime === 0
-                ) {
-                  showPopup("👀 I see you — show me a face!", 1, true);
-                }
+                showPopup("Scanning face", 1, true);
               }
 
               const { box } = result.detection;
@@ -673,36 +663,34 @@
                 return;
               }
 
-              const scanningActive =
-                startExpressionsTime && now < startExpressionsTime;
-              if (scanningActive) {
-                showScanner();
-              } else {
-                hideScanner();
-              }
-
               const rawBest = bestExpression(expr);
               const best = smoothBest(rawBest);
+              const pct = (best.score * 100).toFixed(0);
+              const expressionReady = best.score >= EXPRESSION_READY_SCORE;
+              const timerSatisfied =
+                !startExpressionsTime || now >= startExpressionsTime;
 
-              // Draw small label above box
-              if (!scanningActive) {
-                const pct = (best.score * 100).toFixed(0);
+              if (!expressionsUnlocked && expressionReady && timerSatisfied) {
+                expressionsUnlocked = true;
+              }
+
+              const scanningActive = !expressionsUnlocked;
+              if (scanningActive) {
+                showScanner();
+                hud.textContent = "scanning face...";
+              } else {
+                hideScanner();
                 drawLabelOverBox(box, `${best.name} ${pct}%`);
                 hud.textContent = `expression: ${best.name} (${pct}%)`;
-              } else {
-                hud.textContent = "scanning face...";
               }
 
               // Popup if changed / confident
-              maybeAnnounce(best);
+              maybeAnnounce(best, !scanningActive);
             } else {
               // reset face detection state when face disappears
-              if (faceSeen) {
-                // Only update disappearance time if we had seen a face
-                faceDisappearedTime = Date.now();
-              }
               faceSeen = false;
               startExpressionsTime = 0;
+              expressionsUnlocked = false;
               hideScanner();
               hud.textContent = "no face detected";
             }
