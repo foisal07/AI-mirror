@@ -588,6 +588,14 @@
         popup.classList.add("show");
       }
 
+      function showSameExpressionNotice() {
+        setTickerText({
+          heading: "Give me a different expression",
+          subtitle: "Switch it up so I can announce something new.",
+        });
+        popup.classList.add("show");
+      }
+
       function speak(text) {
         try {
           if (!allowSpeech) return;
@@ -685,11 +693,16 @@
         const confident = best.score >= SCORE_MIN_TO_ANNOUNCE;
         const cooledDown = now - lastPopupAt >= MIN_MS_BETWEEN_POPUPS;
 
-        if (confident && cooledDown && changedName) {
+        if (!confident || !cooledDown) return;
+
+        if (changedName) {
           showPopup(best.name, best.score);
           lastShown = best;
-          lastPopupAt = now;
+        } else {
+          showSameExpressionNotice();
         }
+
+        lastPopupAt = now;
       }
 
       function drawBox(box) {
