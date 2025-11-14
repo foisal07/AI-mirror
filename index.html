@@ -682,12 +682,10 @@
         if (!canAnnounce) return;
         const now = Date.now();
         const changedName = best.name !== lastShown.name;
-        const changedScore =
-          Math.abs(best.score - (lastShown.score || 0)) >= CHANGE_THRESH;
         const confident = best.score >= SCORE_MIN_TO_ANNOUNCE;
         const cooledDown = now - lastPopupAt >= MIN_MS_BETWEEN_POPUPS;
 
-        if (confident && cooledDown && (changedName || changedScore)) {
+        if (confident && cooledDown && changedName) {
           showPopup(best.name, best.score);
           lastShown = best;
           lastPopupAt = now;
