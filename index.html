@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <meta name="orientation" content="portrait" />
-    <title>AI Mirror — Expression Popup</title>
+    <title>Ministry of Facial Affairs — Expression Popup</title>
     <style>
       :root {
         color-scheme: dark;
@@ -363,7 +363,7 @@
     <!-- Popup element -->
     <div id="popup" role="status" aria-live="polite">
       <div class="ticker">
-        <div class="ticker-label">AI Mirror</div>
+        <div class="ticker-label">Ministry of Facial Affairs</div>
         <div class="ticker-content">
           <div id="tickerHeading" class="ticker-heading">
             I see you, show your best expression
@@ -393,181 +393,98 @@
 
       // speech permission flag — enabled by explicit user gesture (Start button)
       let allowSpeech = true;
+const expressionMessages = {
+  happy: [
+    "Certified Beam Distributor",
+    "Model Citizen of Joy",
+    "Public Morale Contributor",
+  ],
 
-      const expressionMessages = {
-        happy: [
-          // Original
-          "Radiant Comrade!",
-          "Joy Spreader!",
-          "Sunshine Champion!",
-          // Screenshot
-          "Radiant Comrade",
-          "Joy-Leaking Citizen",
-          // New
-          "Optimism Reactor",
-          "Hyper-Positive Unit",
-          "Certified Happiness Distributor",
-        ],
+  surprised: [
+    "Alert Citizen",
+    "Perception Pioneer",
+    "Shock Compliance Officer",
+  ],
 
-        sad: [
-          // Original
-          "Captain Serious",
-          "Melancholy Poet",
-          "Blue Mood Master",
-          // Screenshot
-          "Soft-Hearted Subject",
-          // New
-          "Tearful Thinker",
-          "Low-Voltage Soul",
-          "Sentiment Overloader",
-        ],
+  neutral: [
+    "Nonchalant Observer",
+    "Chairperson of Chill",
+    "Captain Serious",
+  ],
 
-        angry: [
-          // Original
-          "Thunder Face!",
-          "Mighty Grumpy!",
-          "Epic Rage Master!",
-          // Screenshot
-          "Captain Serious",
-          "Potential Dissident",
-          // New
-          "Volcano Mode Activated",
-          "Scowl Specialist",
-          "Certified Rage Unit",
-        ],
+  sad: [
+    "Deep Sigh Operator",
+    "Moist-Eyed Agent",
+    "Certified Sulker",
+  ],
 
-        surprised: [
-          // Original
-          "Shock Commander!",
-          "Wide-Eyed Wonder!",
-          "Surprise Expert!",
-          // Screenshot
-          "Overly Curious Unit",
-          // New
-          "Astonishment Module",
-          "Expression Error: Too Much Input",
-          "Unexpected Item in the Emotional Area",
-        ],
+  angry: [
+    "Frustration Operator",
+    "Emotionally Volatile Entity",
+    "Rage Consultant",
+  ],
 
-        neutral: [
-          // Original
-          "Zen Master",
-          "Poker Face Pro",
-          "Calm Keeper",
-          // Screenshot
-          "Nonchalant Entity",
-          "Bureaucratically Present",
-          // New
-          "Emotionless Navigator",
-          "Passive Observation Mode",
-          "The Unbothered One",
-        ],
+  fearful: [
+    "Timid Participant",
+    "Caution Advocate",
+    "Emotional Security Risk",
+  ],
 
-        fearful: [
-          // Original (no screenshot examples)
-          "Brave Explorer",
-          "Adventure Seeker",
-          "Thrill Master",
-          // New
-          "Anxiety Engine Running",
-          "Startled Lifeform Detected",
-          "Nervous System Overclocked",
-        ],
+  disgusted: [
+    "Taste Regulation Officer",
+    "Aesthetic Dissenter",
+    "Opinion Liability",
+  ],
+};
 
-        disgusted: [
-          // Original
-          "Critic Supreme",
-          "Taste Guardian",
-          "Opinion Master",
-          // New
-          "Visceral Rejection Specialist",
-          "Face of Absolute Disapproval",
-          "Disgust Sensor at Maximum",
-        ],
-      };
+const expressionSubtitles = {
+  happy: [
+    "Exceptional brightness detected. You’ve been authorized one free overpriced café pastry.",
+    "Smile compliance verified. Premium Wi-Fi granted. It might even work today.",
+    "Happiness logged. You’re issued Fast Track Greetings and people must smile back at you.",
+  ],
 
-      const expressionSubtitles = {
-        happy: [
-          // Original
-          "Warning: excessive joy detected.",
-          "Smile quota exceeded — congratulations!",
-          // Screenshot
-          "Smile compliance at 104%. Dessert approved.",
-          "Your positivity may influence others. Keep glowing.",
-          // New
-          "Public morale boosted by your happiness output.",
-          "Caution: radiating optimism.",
-        ],
+  surprised: [
+    "Reactivity above average. You may skip one awkward small-talk interaction without penalty.",
+    "Awareness spike detected. You get early access to today’s mildly interesting online content.",
+    "Emotional agility confirmed. Enjoy five minutes of officially sanctioned daydreaming.",
+  ],
 
-        sad: [
-          // Original
-          "Expert-level brooding in progress.",
-          "Steam: handle with kindness.",
-          // Screenshot
-          "Emotional density high. Cake withheld for observation.",
-          // New
-          "Mood levels falling — send digital hugs.",
-          "Soft mode activated. Proceed gently.",
-        ],
+  neutral: [
+    "We noticed you didn’t smile. Recreational scrolling suspended.",
+    "Composure flawless. You’re licensed to defuse chaos using nothing but sarcasm.",
+    "Composure steady. A mandatory twenty-minute cat-video therapy session has been scheduled.",
+  ],
 
-        angry: [
-          // Original
-          "Calm breathing recommended.",
-          "Hot vibes cooling down soon.",
-          // Screenshot
-          "Your expression risks lowering group morale. Cat video prescribed.",
-          "Micro-aggression in eyebrows detected. Report for meme training.",
-          // New
-          "Rage levels rising — stand back.",
-          "Alert: imminent keyboard smashing predicted.",
-        ],
+  sad: [
+    "Melancholy logged. Optimism training has been booked for you.",
+    "Sentiment dip detected. Fifteen minutes of baby-elephant emotional-support footage prescribed.",
+    "Low mood detected. You’ve been assigned a character-building walk in annoying light rain.",
+  ],
 
-        surprised: [
-          // Original
-          "Blink to confirm reality.",
-          "Alert: curiosity peaked!",
-          // Screenshot
-          "Curiosity level: above average. Monitoring continues.",
-          // New
-          "Unexpected emotional spike detected.",
-          "Shockwave registered in facial sensors.",
-        ],
+  angry: [
+    "Aggression peak detected. You must take the stairs today for grounding.",
+    "Hostile expression observed. Voice-note privileges have been switched off. Text only.",
+    "Heat level excessive. Mandatory meditation assigned: How Not To Flip a Table, beginner edition.",
+  ],
 
-        neutral: [
-          // Original
-          "Zen mode activated.",
-          "Stoic and stylish.",
-          // Screenshot
-          "We noticed you didn’t smile. Recreational scrolling reduced.",
-          "You exist in the frame. Please add emotion.",
-          // New
-          "Operative functioning at baseline.",
-          "Flatline emotion. Smooth and steady.",
-        ],
+  fearful: [
+    "Hesitation detected. One bold decision required today. Choosing dinner counts.",
+    "Anxiety logged. Your maps are set to direct route only. No rerouting allowed.",
+    "Low confidence detected. Exposure therapy activated. You must watch a Ted Talk titled How To Be Unbothered.",
+  ],
 
-        fearful: [
-          // Original
-          "Adrenaline: optional.",
-          "Courage boots are on backorder.",
-          // New
-          "Fear detected — would you like a flashlight?",
-          "Warning: small noises may cause panic.",
-        ],
+  disgusted: [
+    "Overcritical behavior registered. You’ve lost the right to choose tonight’s movie.",
+    "Judgment detected. You must compliment the next mildly mediocre thing you see.",
+    "Disdain level too high. Your snack privileges have been downgraded to mysterious office crackers.",
+  ],
 
-        disgusted: [
-          // Original
-          "Tastebuds offended.",
-          "Opinionated and proud.",
-          // New
-          "That face says ‘absolutely not.’",
-          "Revulsion recorded. Sanitizing environment.",
-        ],
-
-        default: [
-          "Mood detected — processing witty comment.",
-          "Nice face, nice vibes.",
-        ],
-      };
+  default: [
+    "Mood detected — processing witty comment.",
+    "Nice face, nice vibes.",
+  ],
+};
 
       function getRandomMessage(expression) {
         const list =
