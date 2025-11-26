@@ -560,6 +560,7 @@ const expressionSubtitles = {
       let faceSeen = false;
       let expressionsUnlocked = false;
       let scannerVisible = false;
+      let neutralAnnounced = false;
       // track when expressions should start being announced (after scanning finishes)
       let startExpressionsTime = 0;
       const SCAN_MIN_DURATION = 3000; // scanning overlay minimum duration
@@ -633,9 +634,19 @@ const expressionSubtitles = {
         if (!confident || !cooledDown) return;
 
         if (changedName) {
+          // If neutral has already been announced, skip it but update state
+          if (best.name === "neutral" && neutralAnnounced) {
+            lastShown = best;
+            return;
+          }
+
           showPopup(best.name, best.score);
           lastShown = best;
           lastPopupAt = now;
+
+          if (best.name === "neutral") {
+            neutralAnnounced = true;
+          }
         }
       }
 
@@ -810,6 +821,7 @@ const expressionSubtitles = {
               faceSeen = false;
               startExpressionsTime = 0;
               expressionsUnlocked = false;
+              neutralAnnounced = false;
               hideScanner();
               hud.textContent = "no face detected";
             }
