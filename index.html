@@ -650,25 +650,7 @@ const expressionSubtitles = {
         }
       }
 
-      function drawBox(box) {
-        ctx.strokeStyle = "rgba(255,255,255,.9)";
-        ctx.lineWidth = 2;
-        ctx.setLineDash([]);
-        ctx.strokeRect(box.x, box.y, box.width, box.height);
-      }
 
-      function drawLabelOverBox(box, text) {
-        const pad = 6;
-        ctx.font = "14px system-ui, sans-serif";
-        const tw = ctx.measureText(text).width,
-          th = 18;
-        const tx = box.x + Math.max(0, (box.width - tw) / 2);
-        const ty = Math.max(0, box.y - th - 8);
-        ctx.fillStyle = "rgba(0,0,0,0.6)";
-        ctx.fillRect(tx - pad, ty - th + 4, tw + pad * 2, th);
-        ctx.fillStyle = "white";
-        ctx.fillText(text, tx, ty);
-      }
 
       function ensureCanvasSizeMatchesVideo() {
         if (
@@ -780,7 +762,7 @@ const expressionSubtitles = {
               }
 
               const { box } = result.detection;
-              drawBox(box);
+              // drawBox(box); // Removed visual box
 
               const expr = result.expressions || {};
               const keys = Object.keys(expr);
@@ -810,7 +792,7 @@ const expressionSubtitles = {
                 hud.textContent = "scanning face...";
               } else {
                 hideScanner();
-                drawLabelOverBox(box, `${best.name} ${pct}%`);
+                // drawLabelOverBox(box, `${best.name} ${pct}%`); // Removed visual label
                 hud.textContent = `expression: ${best.name} (${pct}%)`;
               }
 
