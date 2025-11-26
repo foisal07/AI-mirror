@@ -531,13 +531,7 @@ const expressionSubtitles = {
         popup.classList.add("show");
       }
 
-      function showSameExpressionNotice() {
-        setTickerText({
-          heading: "Give me a different expression",
-          subtitle: "Switch it up so I can announce something new.",
-        });
-        popup.classList.add("show");
-      }
+
 
       function speak(text) {
         try {
@@ -641,11 +635,8 @@ const expressionSubtitles = {
         if (changedName) {
           showPopup(best.name, best.score);
           lastShown = best;
-        } else {
-          showSameExpressionNotice();
+          lastPopupAt = now;
         }
-
-        lastPopupAt = now;
       }
 
       function drawBox(box) {
