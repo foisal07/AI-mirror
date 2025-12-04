@@ -375,7 +375,7 @@
       </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/howler@2.2.4/dist/howler.min.js"></script>
+
     <!-- Only face-api.js (no separate TFJS tag) -->
     <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
 
@@ -553,8 +553,7 @@ const expressionSubtitles = {
       const SCORE_MIN_TO_ANNOUNCE = 0.45; // only announce if top score >= 0.45
       const EXPRESSION_READY_SCORE = 0.35; // minimum confidence to hide scanner
       const MIN_MS_BETWEEN_POPUPS = 3000; // 3 seconds between expressions
-      const SCAN_AUDIO_VOLUME = 0.35;
-      const SCAN_AUDIO_SRC = "scan.wav";
+
       let lastPopupAt = 0;
       // track whether a face is currently visible (to show prompt once per appearance)
       let faceSeen = false;
@@ -565,8 +564,7 @@ const expressionSubtitles = {
       let startExpressionsTime = 0;
       const SCAN_MIN_DURATION = 3000; // scanning overlay minimum duration
       const SCAN_MAX_DURATION = 5000; // scanning overlay maximum duration
-      let scanSound = null;
-      let scanSoundPlaying = false;
+
 
       function scheduleScanHold(now) {
         const duration =
@@ -575,31 +573,7 @@ const expressionSubtitles = {
         startExpressionsTime = now + duration;
       }
 
-      function ensureScanSound() {
-        if (scanSound || typeof Howl === "undefined") return scanSound;
-        scanSound = new Howl({
-          src: [SCAN_AUDIO_SRC],
-          loop: true,
-          volume: SCAN_AUDIO_VOLUME,
-          preload: true,
-        });
-        return scanSound;
-      }
 
-      function startScanAudio() {
-        const sound = ensureScanSound();
-        if (!sound) return;
-        if (scanSoundPlaying) return;
-        sound.stop();
-        sound.play();
-        scanSoundPlaying = true;
-      }
-
-      function stopScanAudio() {
-        if (!scanSound || !scanSoundPlaying) return;
-        scanSound.stop();
-        scanSoundPlaying = false;
-      }
 
       function bestExpression(expressions) {
         let best = { name: "unknown", score: 0 };
@@ -719,7 +693,7 @@ const expressionSubtitles = {
         scanner.classList.add("show");
         scanner.setAttribute("aria-hidden", "false");
         scannerVisible = true;
-        startScanAudio();
+
       }
 
       function hideScanner() {
@@ -727,7 +701,7 @@ const expressionSubtitles = {
         scanner.classList.remove("show");
         scanner.setAttribute("aria-hidden", "true");
         scannerVisible = false;
-        stopScanAudio();
+
       }
 
       async function startApp() {
