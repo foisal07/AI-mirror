@@ -552,7 +552,7 @@ const expressionSubtitles = {
       const CHANGE_THRESH = 0.1; // minimum change in score to consider "new"
       const SCORE_MIN_TO_ANNOUNCE = 0.45; // only announce if top score >= 0.45
       const EXPRESSION_READY_SCORE = 0.35; // minimum confidence to hide scanner
-      const MIN_MS_BETWEEN_POPUPS = 3000; // 3 seconds between expressions
+      const MIN_MS_BETWEEN_POPUPS = 30000; // 30 seconds between expressions
 
       let lastPopupAt = 0;
       // track whether a face is currently visible (to show prompt once per appearance)
