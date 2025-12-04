@@ -704,6 +704,60 @@ const expressionSubtitles = {
 
       }
 
+      function drawBox(box) {
+        ctx.strokeStyle = "rgba(0, 255, 204, 0.8)";
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        // Draw corners only for a cleaner look
+        const cornerSize = Math.min(box.width, box.height) * 0.2;
+        
+        // Top-left
+        ctx.moveTo(box.x, box.y + cornerSize);
+        ctx.lineTo(box.x, box.y);
+        ctx.lineTo(box.x + cornerSize, box.y);
+        
+        // Top-right
+        ctx.moveTo(box.x + box.width - cornerSize, box.y);
+        ctx.lineTo(box.x + box.width, box.y);
+        ctx.lineTo(box.x + box.width, box.y + cornerSize);
+        
+        // Bottom-right
+        ctx.moveTo(box.x + box.width, box.y + box.height - cornerSize);
+        ctx.lineTo(box.x + box.width, box.y + box.height);
+        ctx.lineTo(box.x + box.width - cornerSize, box.y + box.height);
+        
+        // Bottom-left
+        ctx.moveTo(box.x + cornerSize, box.y + box.height);
+        ctx.lineTo(box.x, box.y + box.height);
+        ctx.lineTo(box.x, box.y + box.height - cornerSize);
+        
+        ctx.stroke();
+      }
+
+      function drawLabelOverBox(box, label) {
+        ctx.font = "bold 16px 'Orbitron', sans-serif";
+        const textMetrics = ctx.measureText(label);
+        const textWidth = textMetrics.width;
+        const padding = 8;
+        const height = 24;
+        
+        const x = box.x + (box.width - textWidth) / 2;
+        const y = box.y - height - 10;
+        
+        // Background
+        ctx.fillStyle = "rgba(12, 12, 16, 0.85)";
+        ctx.beginPath();
+        ctx.roundRect(x - padding, y, textWidth + padding * 2, height + padding, 8);
+        ctx.fill();
+        ctx.strokeStyle = "rgba(0, 255, 204, 0.4)";
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        
+        // Text
+        ctx.fillStyle = "#64f3d5";
+        ctx.fillText(label, x, y + height - 2);
+      }
+
       async function startApp() {
         try {
           startBtn.disabled = true;
@@ -736,7 +790,7 @@ const expressionSubtitles = {
               }
 
               const { box } = result.detection;
-              // drawBox(box); // Removed visual box
+              drawBox(box);
 
               const expr = result.expressions || {};
               const keys = Object.keys(expr);
@@ -766,7 +820,7 @@ const expressionSubtitles = {
                 hud.textContent = "scanning face...";
               } else {
                 hideScanner();
-                // drawLabelOverBox(box, `${best.name} ${pct}%`); // Removed visual label
+                drawLabelOverBox(box, `${best.name} ${pct}%`);
                 hud.textContent = `expression: ${best.name} (${pct}%)`;
               }
 
