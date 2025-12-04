@@ -1,0 +1,807 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="orientation" content="portrait" />
+    <title>Ministry of Facial Affairs — Expression Popup</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --camera-width: min(100%, calc(100svh * 0.5625));
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: #0b0b0c;
+        color: #fff;
+        font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+        /* prevent scroll/bounce on mobile */
+        position: fixed;
+        inset: 0;
+        overflow: hidden;
+      }
+      .wrap {
+        min-height: 100svh;
+        display: block;
+        padding: 0;
+      }
+      .stage {
+        position: relative;
+        width: 100%;
+        height: 100svh;
+        /* Force portrait aspect ratio even in landscape */
+        max-width: var(--camera-width); /* 9:16 ratio */
+        margin: 0 auto;
+        background: #000;
+      }
+      video,
+      canvas {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        display: block;
+        object-fit: cover;
+        /* ensure video stays centered */
+        transform-origin: center;
+      }
+
+      /* Force portrait layout */
+      @media screen and (orientation: portrait) {
+        html {
+          /* Lock screen to portrait */
+          min-height: -webkit-fill-available;
+        }
+      }
+      @media (orientation: landscape) {
+        .stage {
+          height: 100svh;
+          max-width: var(--camera-width);
+        }
+        video {
+          /* Ensure video feed is rotated to portrait in landscape mode */
+          transform: scale(1.1); /* Slight scale up to prevent gaps */
+        }
+        html {
+          /* Request portrait mode on supported devices */
+          min-height: -webkit-fill-available;
+        }
+      }
+
+      /* Loading overlay */
+      #loader {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(0, 0, 0, 0.45);
+        z-index: 20;
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 0.25s ease;
+      }
+      #loader.show {
+        opacity: 1;
+        pointer-events: auto;
+      }
+      .spinner {
+        width: 56px;
+        height: 56px;
+        border-radius: 50%;
+        border: 6px solid rgba(255, 255, 255, 0.12);
+        border-top-color: #fff;
+        animation: spin 1s linear infinite;
+        box-shadow: 0 6px 24px rgba(0, 0, 0, 0.5);
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      /* Face scanning overlay */
+      #scanner {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 18px;
+        z-index: 6;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.3s ease;
+        background: radial-gradient(
+            circle at center,
+            rgba(0, 255, 204, 0.05),
+            transparent 60%
+          ),
+          rgba(0, 0, 0, 0.15);
+        backdrop-filter: blur(2px);
+      }
+      #scanner.show {
+        opacity: 1;
+      }
+      .scanner-frame {
+        width: min(70%, 360px);
+        aspect-ratio: 3 / 4;
+        border: 1px solid rgba(0, 255, 204, 0.4);
+        border-radius: 24px;
+        position: relative;
+        overflow: hidden;
+        box-shadow: 0 15px 35px rgba(0, 0, 0, 0.45);
+      }
+      .scanner-grid {
+        position: absolute;
+        inset: 0;
+        background-image: linear-gradient(
+            rgba(0, 255, 204, 0.08) 1px,
+            transparent 1px
+          ),
+          linear-gradient(90deg, rgba(0, 255, 204, 0.08) 1px, transparent 1px);
+        background-size: 40px 40px;
+      }
+      .scanner-line {
+        position: absolute;
+        left: 0;
+        width: 100%;
+        height: 8px;
+        background: linear-gradient(
+          90deg,
+          transparent,
+          rgba(0, 255, 204, 0.9),
+          transparent
+        );
+        box-shadow: 0 0 16px rgba(0, 255, 204, 0.75);
+        animation: scannerSweep 2s ease-in-out infinite;
+      }
+      @keyframes scannerSweep {
+        0% {
+          top: 0;
+        }
+        50% {
+          top: calc(100% - 8px);
+        }
+        100% {
+          top: 0;
+        }
+      }
+      .scanner-text {
+        text-align: center;
+        font-size: 16px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.3ch;
+      }
+      .scanner-text small {
+        display: block;
+        margin-top: 6px;
+        font-size: 12px;
+        letter-spacing: normal;
+        text-transform: none;
+        opacity: 0.8;
+      }
+      .fingerprint {
+        position: relative;
+        width: 58px;
+        height: 58px;
+        border: 3px solid #aab8be;
+        border-radius: 50%;
+        margin: 0 auto;
+        opacity: 0.85;
+        overflow: hidden;
+        pointer-events: none;
+      }
+      .fingerprint.scanning::after {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 58px;
+        height: 8px;
+        background-image: linear-gradient(
+          to bottom,
+          rgba(170, 184, 190, 0),
+          rgba(170, 184, 190, 0.8)
+        );
+        animation: scanning 0.8s linear infinite;
+        border-radius: 50%;
+      }
+      @keyframes scanning {
+        100% {
+          transform: translateY(52px);
+        }
+      }
+
+      #hud {
+        position: absolute;
+        left: 12px;
+        top: 12px;
+        z-index: 5;
+        /* hide HUD for fullscreen camera mode */
+        display: none !important;
+        padding: 8px 12px;
+        font-size: 14px;
+        border-radius: 12px;
+        background: rgba(20, 20, 24, 0.65);
+        backdrop-filter: blur(6px);
+      }
+
+      #startBtn {
+        appearance: none;
+        border: 0;
+        cursor: pointer;
+        border-radius: 12px;
+        padding: 10px 14px;
+        background: #1e1e24;
+        color: #fff;
+        font-size: 14px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
+        /* hide start button under the camera for fully immersive fullscreen */
+        display: none !important;
+      }
+
+      /* Bottom ticker -> Floating Caption */
+      #popup {
+        position: fixed;
+        left: 50%;
+        bottom: 10%;
+        transform: translateX(-50%) translateY(20px);
+        width: 90%;
+        max-width: 400px;
+        transition: all 0.5s cubic-bezier(0.19, 1, 0.22, 1);
+        opacity: 0;
+        pointer-events: none;
+        z-index: 10;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+      }
+      #popup.show {
+        transform: translateX(-50%) translateY(0);
+        opacity: 1;
+      }
+      .ticker {
+        all: unset;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        width: 100%;
+      }
+      .ticker-label {
+        background: linear-gradient(90deg, #64f3d5, #6e8efb);
+        padding: 8px 24px;
+        border-radius: 30px;
+        color: #003049;
+        font-family: "Orbitron", system-ui, sans-serif;
+        font-size: 16px;
+        font-weight: 600;
+        letter-spacing: 0.5px;
+        box-shadow: 0 0 20px rgba(100, 243, 213, 0.4);
+        text-transform: uppercase;
+        margin-left: 0;
+      }
+      .ticker-content {
+        background: rgba(12, 12, 16, 0.85);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        padding: 24px;
+        border-radius: 24px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        width: 100%;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
+        color: #a0a0a0;
+        font-family: "Courier New", monospace;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        position: relative;
+      }
+      /* Little tab decoration on top left of content box */
+      .ticker-content::before {
+        content: "";
+        position: absolute;
+        top: -1px;
+        left: 24px;
+        width: 40px;
+        height: 2px;
+        background: rgba(255, 255, 255, 0.3);
+      }
+      .ticker-heading {
+        font-size: 15px;
+        font-weight: 400;
+        letter-spacing: 0.5px;
+        line-height: 1.5;
+        color: #e0e0e0;
+        text-transform: none;
+      }
+      .ticker-subtitle {
+        font-size: 13px;
+        opacity: 0.7;
+        line-height: 1.4;
+        text-transform: none;
+      }
+
+      /* Optional: expression label above box */
+      .label-bg {
+        fill: rgba(0, 0, 0, 0.6);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <div class="stage">
+        <div id="hud">loading…</div>
+        <video id="video" autoplay muted playsinline></video>
+        <canvas id="overlay"></canvas>
+        <div id="scanner" aria-hidden="true">
+          <div class="scanner-frame">
+            <div class="scanner-grid"></div>
+            <div class="scanner-line"></div>
+          </div>
+          <div class="fingerprint scanning" aria-hidden="true"></div>
+          <div class="scanner-text">
+            <span>Scanning face</span>
+            <small>Hold steady while we lock on</small>
+          </div>
+        </div>
+      </div>
+      <button id="startBtn" aria-label="Start">▶ Start</button>
+    </div>
+
+    <!-- Loading overlay -->
+    <div id="loader" aria-hidden="true">
+      <div class="spinner" role="status" aria-hidden="true"></div>
+    </div>
+
+    <!-- Popup element -->
+    <div id="popup" role="status" aria-live="polite">
+      <div class="ticker">
+        <div class="ticker-label">Ministry of Facial Affairs</div>
+        <div class="ticker-content">
+          <div id="tickerHeading" class="ticker-heading">
+            I see you, show your best expression
+          </div>
+          <div id="tickerSubtitle" class="ticker-subtitle">
+            Bring your face into view
+          </div>
+        </div>
+      </div>
+    </div>
+
+
+    <!-- Only face-api.js (no separate TFJS tag) -->
+    <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+
+    <script>
+      const video = document.getElementById("video");
+      const overlay = document.getElementById("overlay");
+      const ctx = overlay.getContext("2d");
+      const hud = document.getElementById("hud");
+      const startBtn = document.getElementById("startBtn");
+      const popup = document.getElementById("popup");
+      const tickerHeading = document.getElementById("tickerHeading");
+      const tickerSubtitle = document.getElementById("tickerSubtitle");
+      const loader = document.getElementById("loader");
+      const scanner = document.getElementById("scanner");
+
+      // speech permission flag — enabled by explicit user gesture (Start button)
+      let allowSpeech = true;
+const expressionMessages = {
+  happy: [
+    "Certified Beam Distributor",
+    "Model Citizen of Joy",
+    "Public Morale Contributor",
+  ],
+
+  surprised: [
+    "Alert Citizen",
+    "Perception Pioneer",
+    "Shock Compliance Officer",
+  ],
+
+  neutral: [
+    "Nonchalant Observer",
+    "Chairperson of Chill",
+    "Captain Serious",
+  ],
+
+  sad: [
+    "Deep Sigh Operator",
+    "Moist-Eyed Agent",
+    "Certified Sulker",
+  ],
+
+  angry: [
+    "Frustration Operator",
+    "Emotionally Volatile Entity",
+    "Rage Consultant",
+  ],
+
+  fearful: [
+    "Timid Participant",
+    "Caution Advocate",
+    "Emotional Security Risk",
+  ],
+
+  disgusted: [
+    "Taste Regulation Officer",
+    "Aesthetic Dissenter",
+    "Opinion Liability",
+  ],
+};
+
+const expressionSubtitles = {
+  happy: [
+    "Exceptional brightness detected. You’ve been authorized one free overpriced café pastry.",
+    "Smile compliance verified. Premium Wi-Fi granted. It might even work today.",
+    "Happiness logged. You’re issued Fast Track Greetings and people must smile back at you.",
+  ],
+
+  surprised: [
+    "Reactivity above average. You may skip one awkward small-talk interaction without penalty.",
+    "Awareness spike detected. You get early access to today’s mildly interesting online content.",
+    "Emotional agility confirmed. Enjoy five minutes of officially sanctioned daydreaming.",
+  ],
+
+  neutral: [
+    "We noticed you didn’t smile. Recreational scrolling suspended.",
+    "Composure flawless. You’re licensed to defuse chaos using nothing but sarcasm.",
+    "Composure steady. A mandatory twenty-minute cat-video therapy session has been scheduled.",
+  ],
+
+  sad: [
+    "Melancholy logged. Optimism training has been booked for you.",
+    "Sentiment dip detected. Fifteen minutes of baby-elephant emotional-support footage prescribed.",
+    "Low mood detected. You’ve been assigned a character-building walk in annoying light rain.",
+  ],
+
+  angry: [
+    "Aggression peak detected. You must take the stairs today for grounding.",
+    "Hostile expression observed. Voice-note privileges have been switched off. Text only.",
+    "Heat level excessive. Mandatory meditation assigned: How Not To Flip a Table, beginner edition.",
+  ],
+
+  fearful: [
+    "Hesitation detected. One bold decision required today. Choosing dinner counts.",
+    "Anxiety logged. Your maps are set to direct route only. No rerouting allowed.",
+    "Low confidence detected. Exposure therapy activated. You must watch a Ted Talk titled How To Be Unbothered.",
+  ],
+
+  disgusted: [
+    "Overcritical behavior registered. You’ve lost the right to choose tonight’s movie.",
+    "Judgment detected. You must compliment the next mildly mediocre thing you see.",
+    "Disdain level too high. Your snack privileges have been downgraded to mysterious office crackers.",
+  ],
+
+  default: [
+    "Mood detected — processing witty comment.",
+    "Nice face, nice vibes.",
+  ],
+};
+
+      function getRandomMessage(expression) {
+        const list =
+          expressionMessages[expression.toLowerCase()] ||
+          expressionMessages.default;
+        return list[Math.floor(Math.random() * list.length)];
+      }
+
+      function getRandomSubtitle(expression) {
+        const arr =
+          expressionSubtitles[expression.toLowerCase()] ||
+          expressionSubtitles.default;
+        return arr[Math.floor(Math.random() * arr.length)];
+      }
+
+      function formatExpressionLabel(expression) {
+        if (!expression) return "Expression detected";
+        return expression
+          .toString()
+          .split(/[\s_-]+/)
+          .map(
+            (part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase()
+          )
+          .join(" ");
+      }
+
+      function setTickerText({ heading = "", subtitle = "" }) {
+        if (tickerHeading) tickerHeading.textContent = heading;
+        if (tickerSubtitle) tickerSubtitle.textContent = subtitle;
+      }
+
+      function showPopup(text, conf, isWelcome = false) {
+        if (!isWelcome) {
+          const caption = formatExpressionLabel(text);
+          const funMessage = getRandomMessage(text);
+          const subtitle = getRandomSubtitle(text);
+          setTickerText({
+            heading: funMessage,
+            subtitle,
+          });
+          // speak both the detected expression and subtitle when allowed
+          speak(`${caption}. ${funMessage}. ${subtitle}`);
+        }
+        popup.classList.add("show");
+      }
+
+
+
+      function speak(text) {
+        try {
+          if (!allowSpeech) return;
+          const u = new SpeechSynthesisUtterance(text);
+          u.lang = navigator.language || "en-US";
+          speechSynthesis.cancel();
+          speechSynthesis.speak(u);
+        } catch (e) {
+          console.warn("speech failed", e);
+        }
+      }
+
+      // Expression smoothing / change detection
+      const SMOOTH_N = 4; // moving average window (frames)
+      let history = []; // [{name, score}]
+      let lastShown = { name: "", score: 0 };
+      const CHANGE_THRESH = 0.1; // minimum change in score to consider "new"
+      const SCORE_MIN_TO_ANNOUNCE = 0.45; // only announce if top score >= 0.45
+      const EXPRESSION_READY_SCORE = 0.35; // minimum confidence to hide scanner
+      const MIN_MS_BETWEEN_POPUPS = 3000; // 3 seconds between expressions
+
+      let lastPopupAt = 0;
+      // track whether a face is currently visible (to show prompt once per appearance)
+      let faceSeen = false;
+      let expressionsUnlocked = false;
+      let scannerVisible = false;
+      let neutralAnnounced = false;
+      // track when expressions should start being announced (after scanning finishes)
+      let startExpressionsTime = 0;
+      const SCAN_MIN_DURATION = 3000; // scanning overlay minimum duration
+      const SCAN_MAX_DURATION = 5000; // scanning overlay maximum duration
+
+
+      function scheduleScanHold(now) {
+        const duration =
+          SCAN_MIN_DURATION +
+          Math.random() * (SCAN_MAX_DURATION - SCAN_MIN_DURATION);
+        startExpressionsTime = now + duration;
+      }
+
+
+
+      function bestExpression(expressions) {
+        let best = { name: "unknown", score: 0 };
+        for (const [name, score] of Object.entries(expressions))
+          if (score > best.score) best = { name, score };
+        return best;
+      }
+
+      function smoothBest(newBest) {
+        history.push(newBest);
+        if (history.length > SMOOTH_N) history.shift();
+        // average scores per name seen in history
+        const agg = {};
+        history.forEach(({ name, score }) => {
+          agg[name] = (agg[name] || 0) + score;
+        });
+        const smoothed = Object.entries(agg).map(([name, sum]) => ({
+          name,
+          score: sum / history.length,
+        }));
+        smoothed.sort((a, b) => b.score - a.score);
+        return smoothed[0] || newBest;
+      }
+
+      function maybeAnnounce(best, canAnnounce) {
+        if (!canAnnounce) return;
+        const now = Date.now();
+        const changedName = best.name !== lastShown.name;
+        const confident = best.score >= SCORE_MIN_TO_ANNOUNCE;
+        const cooledDown = now - lastPopupAt >= MIN_MS_BETWEEN_POPUPS;
+
+        if (!confident || !cooledDown) return;
+
+        if (changedName) {
+          // If neutral has already been announced, skip it but update state
+          if (best.name === "neutral" && neutralAnnounced) {
+            lastShown = best;
+            return;
+          }
+
+          showPopup(best.name, best.score);
+          lastShown = best;
+          lastPopupAt = now;
+
+          if (best.name === "neutral") {
+            neutralAnnounced = true;
+          }
+        }
+      }
+
+
+
+      function ensureCanvasSizeMatchesVideo() {
+        if (
+          overlay.width !== video.videoWidth ||
+          overlay.height !== video.videoHeight
+        ) {
+          overlay.width = video.videoWidth;
+          overlay.height = video.videoHeight;
+        }
+      }
+
+      async function loadModels() {
+        // Handle both local and GitHub Pages paths
+        const repoName = "AI-mirror";
+        const MODEL_URL =
+          location.hostname === "localhost" || location.hostname === "127.0.0.1"
+            ? "./models"
+            : `/${repoName}/models`;
+
+        hud.textContent = "loading models…";
+        showLoader();
+        try {
+          await Promise.all([
+            faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+            faceapi.nets.faceExpressionNet.loadFromUri(MODEL_URL),
+          ]);
+          hud.textContent = "models ready";
+          hideLoader();
+        } catch (error) {
+          console.error("Error loading models:", error);
+          hud.textContent = `Error loading models from ${MODEL_URL}. Check console for details.`;
+          hideLoader();
+          throw error;
+        }
+      }
+
+      async function setupCamera() {
+        hud.textContent = "requesting camera…";
+        showLoader();
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: "user",
+            width: { ideal: 720 },
+            height: { ideal: 1280 },
+            aspectRatio: { ideal: 0.5625 }, // 9:16 portrait ratio
+          },
+          audio: false,
+        });
+        video.srcObject = stream;
+        await new Promise((r) => (video.onloadedmetadata = r));
+        overlay.width = video.videoWidth;
+        overlay.height = video.videoHeight;
+        hud.textContent = "camera ready";
+        hideLoader();
+      }
+
+      function showLoader() {
+        loader.classList.add("show");
+      }
+      function hideLoader() {
+        loader.classList.remove("show");
+      }
+
+      function showScanner() {
+        if (!scanner || scannerVisible) return;
+        scanner.classList.add("show");
+        scanner.setAttribute("aria-hidden", "false");
+        scannerVisible = true;
+
+      }
+
+      function hideScanner() {
+        if (!scanner || !scannerVisible) return;
+        scanner.classList.remove("show");
+        scanner.setAttribute("aria-hidden", "true");
+        scannerVisible = false;
+
+      }
+
+      async function startApp() {
+        try {
+          startBtn.disabled = true;
+          await loadModels();
+          await setupCamera();
+
+          const opts = new faceapi.TinyFaceDetectorOptions({
+            inputSize: 320,
+            scoreThreshold: 0.5,
+          });
+          hud.textContent = "detecting…";
+
+          async function tick() {
+            ensureCanvasSizeMatchesVideo();
+            const result = await faceapi
+              .detectSingleFace(video, opts)
+              .withFaceExpressions();
+
+            ctx.clearRect(0, 0, overlay.width, overlay.height);
+
+            if (result) {
+              const now = Date.now();
+              const firstFrameWithFace = !faceSeen;
+              if (firstFrameWithFace) {
+                faceSeen = true;
+                expressionsUnlocked = false;
+                scheduleScanHold(now);
+                showScanner();
+                showPopup("Scanning face", 1, true);
+              }
+
+              const { box } = result.detection;
+              // drawBox(box); // Removed visual box
+
+              const expr = result.expressions || {};
+              const keys = Object.keys(expr);
+
+              if (!keys.length) {
+                hud.textContent =
+                  "face found — expressions missing (check ./models)";
+                showScanner();
+                requestAnimationFrame(tick);
+                return;
+              }
+
+              const rawBest = bestExpression(expr);
+              const best = smoothBest(rawBest);
+              const pct = (best.score * 100).toFixed(0);
+              const expressionReady = best.score >= EXPRESSION_READY_SCORE;
+              const timerSatisfied =
+                !startExpressionsTime || now >= startExpressionsTime;
+
+              if (!expressionsUnlocked && expressionReady && timerSatisfied) {
+                expressionsUnlocked = true;
+              }
+
+              const scanningActive = !expressionsUnlocked;
+              if (scanningActive) {
+                showScanner();
+                hud.textContent = "scanning face...";
+              } else {
+                hideScanner();
+                // drawLabelOverBox(box, `${best.name} ${pct}%`); // Removed visual label
+                hud.textContent = `expression: ${best.name} (${pct}%)`;
+              }
+
+              // Popup if changed / confident
+              maybeAnnounce(best, !scanningActive);
+            } else {
+              // reset face detection state when face disappears
+              faceSeen = false;
+              startExpressionsTime = 0;
+              expressionsUnlocked = false;
+              neutralAnnounced = false;
+              hideScanner();
+              hud.textContent = "no face detected";
+            }
+
+            requestAnimationFrame(tick);
+          }
+
+          tick();
+        } catch (err) {
+          console.error(err);
+          hud.textContent = "error: " + err.message;
+          startBtn.disabled = false;
+        }
+      }
+
+      // Mobile needs a user gesture
+      startBtn.addEventListener("click", (ev) => {
+        allowSpeech = true;
+        startApp();
+      });
+      // Try auto-start on desktop
+      window.addEventListener("load", () => {
+        startApp().catch(() => {});
+      });
+    </script>
+  </body>
+</html>
